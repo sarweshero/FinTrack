@@ -51,6 +51,9 @@ class TransactionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "category": {"required": False, "allow_null": True},
+        }
 
     def validate_amount(self, value):
         if value <= Decimal("0.00"):

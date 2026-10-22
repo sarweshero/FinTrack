@@ -33,10 +33,8 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
   const [catError, setCatError] = useState('');
 
   useEffect(() => {
-    if (categories.length === 0) {
-      dispatch(fetchCategories());
-    }
-  }, [dispatch, categories.length]);
+    dispatch(fetchCategories());
+  }, [dispatch]);
 
   const handleQuickAddCategory = async (e) => {
     if (e) e.preventDefault();
@@ -117,8 +115,12 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
     }
   };
 
-  const filteredCategories = categories.filter(
-    (c) => c.type === type || c.type === 'BOTH'
+  const targetCategoryType = type === 'DEBIT' ? 'EXPENSE' : 'INCOME';
+  const matchingCategories = categories.filter(
+    (c) => c.type === targetCategoryType || c.type === 'BOTH'
+  );
+  const otherCategories = categories.filter(
+    (c) => c.type !== targetCategoryType && c.type !== 'BOTH'
   );
 
   return (
@@ -183,7 +185,9 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Category</label>
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Category <span className="font-normal text-[11px] opacity-75">(Optional)</span>
+            </label>
             <button
               type="button"
               onClick={() => {
@@ -207,12 +211,25 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
             }}
             className="w-full bg-slate-50 dark:bg-[#161c2d] border border-slate-200 dark:border-white/10 rounded-2xl py-2.5 px-3 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-[#161c2d] transition-colors"
           >
-            <option value="">Select Category</option>
-            {filteredCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            <option value="">No Category (Optional)</option>
+            {matchingCategories.length > 0 && (
+              <optgroup label={`${type === 'DEBIT' ? 'Expense' : 'Income'} Categories`}>
+                {matchingCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {otherCategories.length > 0 && (
+              <optgroup label="Other Categories">
+                {otherCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.type})
+                  </option>
+                ))}
+              </optgroup>
+            )}
             <option value="__NEW__">+ Create New Category...</option>
           </select>
         </div>

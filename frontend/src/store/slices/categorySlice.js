@@ -62,7 +62,9 @@ const categorySlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.items = action.payload;
+        state.items = Array.isArray(action.payload)
+          ? action.payload
+          : (action.payload?.results || []);
         state.error = null;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
