@@ -66,12 +66,34 @@ ASGI_APPLICATION = "core.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+DB_HOST = os.getenv("DB_HOST") or os.getenv("host")
+DB_PORT = os.getenv("DB_PORT") or os.getenv("port", "6543")
+DB_NAME = os.getenv("DB_NAME") or os.getenv("database", "postgres")
+DB_USER = os.getenv("DB_USER") or os.getenv("user")
+DB_PASSWORD = os.getenv("DB_PASSWORD") or os.getenv("DBPASSWORD")
+
+if DB_HOST:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_NAME,
+            "USER": DB_USER,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST,
+            "PORT": DB_PORT,
+            "OPTIONS": {
+                "sslmode": "require",
+            },
+            "DISABLE_SERVER_SIDE_CURSORS": True,
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
