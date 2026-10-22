@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="mBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f24" />
+      <stop offset="50%" stop-color="#060813" />
+      <stop offset="100%" stop-color="#02040a" />
+    </linearGradient>
+    
+    <linearGradient id="mPulseGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="40%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+
+    <filter id="mNeonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Solid Full background for maskable cropping -->
+  <rect width="512" height="512" fill="url(#mBgGrad)" />
+
+  <!-- Safe Zone content: scaled down and centered within 80% safe zone (x: 51 to 460) -->
+  <g transform="translate(40, 40) scale(0.84)">
+    <!-- Glowing Trend Area Fill -->
+    <path d="M 96 320 L 160 320 L 210 240 L 260 290 L 330 160 L 416 160 L 416 350 L 96 350 Z" 
+          fill="url(#mPulseGrad)" 
+          opacity="0.15" />
+
+    <!-- Main FinPulse dynamic line -->
+    <path d="M 88 320 L 155 320 L 210 240 L 260 295 L 340 160 L 416 160" 
+          fill="none" 
+          stroke="url(#mPulseGrad)" 
+          stroke-width="28" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          filter="url(#mNeonGlow)" />
+
+    <!-- Growth Arrowhead -->
+    <path d="M 378 122 L 424 160 L 378 198" 
+          fill="none" 
+          stroke="#a855f7" 
+          stroke-width="24" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          filter="url(#mNeonGlow)" />
+
+    <!-- Glowing Peak Node -->
+    <circle cx="340" cy="160" r="14" fill="#ffffff" filter="url(#mNeonGlow)" />
+    <circle cx="340" cy="160" r="7" fill="#6366f1" />
+
+    <!-- Start Point Node -->
+    <circle cx="96" cy="320" r="9" fill="#38bdf8" />
+  </g>
+</svg>
+

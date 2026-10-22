@@ -1,0 +1,123 @@
+[
+  {
+    "model": "finance.category",
+    "pk": 1,
+    "fields": {
+      "name": "Food & Dining",
+      "type": "EXPENSE",
+      "icon": "utensils",
+      "color": "#EF4444",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 2,
+    "fields": {
+      "name": "Rent & Housing",
+      "type": "EXPENSE",
+      "icon": "home",
+      "color": "#F59E0B",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 3,
+    "fields": {
+      "name": "Groceries",
+      "type": "EXPENSE",
+      "icon": "shopping-cart",
+      "color": "#10B981",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 4,
+    "fields": {
+      "name": "Utilities & Bills",
+      "type": "EXPENSE",
+      "icon": "zap",
+      "color": "#3B82F6",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 5,
+    "fields": {
+      "name": "Entertainment",
+      "type": "EXPENSE",
+      "icon": "film",
+      "color": "#8B5CF6",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 6,
+    "fields": {
+      "name": "Shopping",
+      "type": "EXPENSE",
+      "icon": "tag",
+      "color": "#EC4899",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 7,
+    "fields": {
+      "name": "Salary",
+      "type": "INCOME",
+      "icon": "briefcase",
+      "color": "#059669",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 8,
+    "fields": {
+      "name": "Freelance & Consulting",
+      "type": "INCOME",
+      "icon": "laptop",
+      "color": "#0D9488",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 9,
+    "fields": {
+      "name": "Investments & Dividends",
+      "type": "INCOME",
+      "icon": "trending-up",
+      "color": "#6366F1",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 10,
+    "fields": {
+      "name": "General & Other",
+      "type": "BOTH",
+      "icon": "folder",
+      "color": "#6B7280",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  }
+]
+
