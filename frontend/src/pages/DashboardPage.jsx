@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronRight,
+  ScanLine,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -99,45 +100,57 @@ export const DashboardPage = () => {
         className="space-y-5"
       >
         {/* Quick Action Shortcuts */}
-        <motion.div variants={itemVariants} className="grid grid-cols-4 gap-2 sm:gap-3">
+        <motion.div variants={itemVariants} className="grid grid-cols-5 gap-1.5 sm:gap-3">
           <button
             onClick={() => openAddTransaction('DEBIT')}
-            className="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-hover border border-rose-500/20 group text-center"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl glass-panel glass-panel-hover border border-rose-500/20 group text-center"
           >
-            <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <ArrowDownLeft size={18} />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+              <ArrowDownLeft size={16} />
             </div>
-            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">Expense</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-200">Expense</span>
           </button>
 
           <button
             onClick={() => openAddTransaction('CREDIT')}
-            className="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-hover border border-emerald-500/20 group text-center"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl glass-panel glass-panel-hover border border-emerald-500/20 group text-center"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <ArrowUpRight size={18} />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+              <ArrowUpRight size={16} />
             </div>
-            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">Income</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-200">Income</span>
           </button>
+
+          <Link
+            to="/scan-bill"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl glass-panel glass-panel-hover border border-indigo-500/30 group text-center relative overflow-hidden"
+          >
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shadow-sm shadow-indigo-500/20">
+              <ScanLine size={16} />
+            </div>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 flex items-center gap-0.5">
+              Scan
+            </span>
+          </Link>
 
           <button
             onClick={openAddSavings}
-            className="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-hover border border-indigo-500/20 group text-center"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl glass-panel glass-panel-hover border border-indigo-500/20 group text-center"
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <PiggyBank size={18} />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+              <PiggyBank size={16} />
             </div>
-            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">Goal</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-200">Goal</span>
           </button>
 
           <button
             onClick={openAddDebt}
-            className="flex flex-col items-center justify-center p-3 rounded-2xl glass-panel glass-panel-hover border border-amber-500/20 group text-center"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl glass-panel glass-panel-hover border border-amber-500/20 group text-center"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <HandCoins size={18} />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+              <HandCoins size={16} />
             </div>
-            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">Lend/Debt</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 dark:text-slate-200">Lend/Debt</span>
           </button>
         </motion.div>
 

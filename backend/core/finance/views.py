@@ -30,6 +30,7 @@ from .serializers import (
 from .services.analytics_service import AnalyticsService
 from .services.reminder_service import ReminderService
 from .services.gemini_service import GeminiService
+from .services.bill_scanner_service import BillScannerService
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -312,3 +313,64 @@ class AIReportView(APIView):
         report = GeminiService.generate_report(force_refresh=True)
         return Response(report, status=status.HTTP_201_CREATED)
 
+
+class BillScanView(APIView):
+    """
+    POST /api/scan-bill/
+    Accepts a multipart/form-data image, compresses it aggressively in-memory
+    (≤ 800 px, JPEG-50) before forwarding to Gemini Vision, and returns
+    a structured transaction payload for the user to review and confirm.
+
+    Quota safeguards
+    ----------------
+    • Hard rate-limit: 10 scans / hour (via DRF ScopedRateThrottle).
+    • Image is never stored on disk — all processing happens in RAM.
+    • Gemini output tokens capped at 512; prompt is < 150 tokens.
+    """
+
+    throttle_scope = "scan_bill"
+
+    # Allow up to 10 MB uploads so real phone photos are accepted (they'll
+    # be compressed down to ~50–80 KB before hitting the API).
+    MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_CONTENT_TYPES = {
+        "image/jpeg", "image/jpg", "image/png",
+        "image/webp", "image/heic", "image/heif",
+    }
+
+    def post(self, request):
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response(
+                {"error": "No image file provided. Send a multipart/form-data request with key 'image'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate content type
+        content_type = (image_file.content_type or "").lower().split(";")[0].strip()
+        if content_type not in self.ALLOWED_CONTENT_TYPES:
+            return Response(
+                {"error": f"Unsupported file type '{content_type}'. Use JPEG, PNG, WebP, or HEIC."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate file size
+        if image_file.size > self.MAX_UPLOAD_BYTES:
+            return Response(
+                {"error": f"File too large ({image_file.size // (1024*1024)} MB). Maximum is 10 MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Read all bytes into memory (no disk I/O)
+        raw_bytes = image_file.read()
+
+        # Delegate to service (compresses + calls Gemini)
+        result = BillScannerService.scan(raw_bytes)
+
+        if not result.get("success"):
+            return Response(
+                {"error": result.get("error", "Scan failed.")},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(result, status=status.HTTP_200_OK)

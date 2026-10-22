@@ -14,6 +14,7 @@ const DebtsPage = lazy(() => import('./pages/DebtsPage'));
 const RemindersPage = lazy(() => import('./pages/RemindersPage'));
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'));
 const AIReportPage = lazy(() => import('./pages/AIReportPage'));
+const ScanBillPage = lazy(() => import('./pages/ScanBillPage'));
 
 const PageLoader = () => (
   <div className="space-y-4 py-2">
@@ -40,6 +41,7 @@ export function App() {
             <Route path="/reminders" element={<RemindersPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/ai-report" element={<AIReportPage />} />
+            <Route path="/scan-bill" element={<ScanBillPage />} />
           </Routes>
         </Suspense>
       </AnimatePresence>

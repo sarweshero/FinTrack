@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Tags, Download, Sun, Moon } from 'lucide-react';
+import { Sparkles, Tags, Download, Sun, Moon, ScanLine } from 'lucide-react';
 import AnimatedCounter from '../ui/AnimatedCounter';
 import { toggleTheme } from '../../store/slices/uiSlice';
 
@@ -39,6 +39,8 @@ export const TopBar = () => {
         return { title: 'Categories', subtitle: 'Manage Tags' };
       case '/ai-report':
         return { title: 'AI Advisor', subtitle: 'Gemini Health Insights' };
+      case '/scan-bill':
+        return { title: 'Scan Bill', subtitle: 'AI Receipt & Bill Scanner' };
       default:
         return { title: 'FinPulse', subtitle: 'Personal Finance' };
     }
@@ -107,6 +109,14 @@ export const TopBar = () => {
               </span>
             </button>
           )}
+
+          <Link
+            to="/scan-bill"
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-white hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm"
+            title="Scan Bill & Receipts"
+          >
+            <ScanLine size={16} />
+          </Link>
 
           <Link
             to="/categories"

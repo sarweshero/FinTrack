@@ -149,6 +149,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "500/day",
         "ai_report": "10/hour",
+        "scan_bill": "10/hour",
     },
     "DATETIME_FORMAT": "%Y-%m-%d %H:%M:%S",
     "DATE_FORMAT": "%Y-%m-%d",
