@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finpulse-v1.0.1';
+const CACHE_NAME = 'finpulse-v1.0.2';
 
 const STATIC_PRECACHE = [
   '/',
@@ -46,6 +46,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Bypass cross-origin requests (e.g. direct API calls to backend)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Bypass non-GET requests (e.g. POST/PUT/DELETE API operations)
   if (request.method !== 'GET') {
