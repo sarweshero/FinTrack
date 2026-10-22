@@ -1,8 +1,22 @@
 import axios from 'axios';
 
-const isDev = import.meta.env.DEV;
-const defaultBaseURL = isDev ? '/api' : 'https://backend-sarwesh-fin.vercel.app/api';
-const baseURL = import.meta.env.VITE_API_URL || defaultBaseURL;
+const rawBaseURL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_BASE_URL ||
+  (import.meta.env.DEV ? '/api' : 'https://backend-sarwesh-fin.vercel.app');
+
+const getCleanBaseURL = (url) => {
+  if (!url) return '/api';
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (trimmed === '/api') return '/api';
+  if (!trimmed.endsWith('/api') && !trimmed.includes('/api/')) {
+    return `${trimmed}/api`;
+  }
+  return trimmed;
+};
+
+const baseURL = getCleanBaseURL(rawBaseURL);
 
 const client = axios.create({
   baseURL,
