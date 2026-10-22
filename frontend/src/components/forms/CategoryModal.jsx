@@ -11,38 +11,53 @@ const PRESET_COLORS = [
 
 const CategoryForm = ({ initialData, onClose }) => {
   const dispatch = useDispatch();
+  const existingCategories = useSelector((state) => state.categories.items);
   const [name, setName] = useState(initialData?.name || '');
-  const [type, setType] = useState(initialData?.type || 'EXPENSE');
+  const [type, setType] = useState(initialData?.type || initialData?.defaultType || 'EXPENSE');
   const [color, setColor] = useState(initialData?.color || '#8B5CF6');
+  const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      dispatch(addToast({ message: 'Category name is required', type: 'error' }));
+    setErrorMessage('');
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setErrorMessage('Category name is required');
+      return;
+    }
+
+    const duplicate = existingCategories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase() && c.id !== initialData?.id
+    );
+    if (duplicate) {
+      setErrorMessage(`A category named "${trimmed}" already exists.`);
       return;
     }
 
     setSubmitting(true);
     try {
       const payload = {
-        name: name.trim(),
+        name: trimmed,
         type,
         color,
       };
 
       if (initialData?.id) {
         await dispatch(updateCategory({ id: initialData.id, data: payload })).unwrap();
-        dispatch(addToast({ message: 'Category updated!', type: 'success' }));
+        dispatch(addToast({ message: 'Category updated successfully!', type: 'success' }));
       } else {
         await dispatch(createCategory(payload)).unwrap();
-        dispatch(addToast({ message: 'Category created!', type: 'success' }));
+        dispatch(addToast({ message: 'Category created successfully!', type: 'success' }));
       }
 
       dispatch(fetchCategories());
       onClose();
     } catch (err) {
-      dispatch(addToast({ message: err || 'Failed to save category', type: 'error' }));
+      const msg = err?.message || (typeof err === 'string' ? err : 'Failed to save category');
+      setErrorMessage(msg);
+      dispatch(addToast({ message: msg, type: 'error' }));
     } finally {
       setSubmitting(false);
     }
@@ -50,14 +65,24 @@ const CategoryForm = ({ initialData, onClose }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {errorMessage && (
+        <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium">
+          {errorMessage}
+        </div>
+      )}
+
       <div>
         <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Category Name</label>
         <input
           type="text"
           required
+          autoFocus
           placeholder="e.g. Subscriptions, Gaming, Healthcare"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (errorMessage) setErrorMessage('');
+          }}
           className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl py-2.5 px-4 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-transparent transition-colors"
         />
       </div>
@@ -103,7 +128,7 @@ const CategoryForm = ({ initialData, onClose }) => {
         <button
           type="submit"
           disabled={submitting}
-          className="flex-1 py-3 px-4 rounded-2xl text-white font-semibold text-sm gradient-primary-btn shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all"
+          className="flex-1 py-3 px-4 rounded-2xl text-white font-semibold text-sm gradient-primary-btn shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all disabled:opacity-50"
         >
           {submitting ? 'Saving...' : initialData?.id ? 'Update' : 'Create Category'}
         </button>

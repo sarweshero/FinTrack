@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { Plus, X } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { closeModal, addToast } from '../../store/slices/uiSlice';
 import { createTransaction, updateTransaction, fetchTransactions } from '../../store/slices/transactionSlice';
+import { fetchCategories, createCategory } from '../../store/slices/categorySlice';
 import { fetchDashboardData } from '../../store/slices/dashboardSlice';
+
+const PRESET_COLORS = [
+  '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
+  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#64748B',
+];
 
 const TransactionForm = ({ initialData, defaultType, onClose }) => {
   const dispatch = useDispatch();
@@ -17,6 +24,61 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState(initialData?.description || '');
   const [submitting, setSubmitting] = useState(false);
+
+  // Inline Category Quick Add State
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#8B5CF6');
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [catError, setCatError] = useState('');
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      dispatch(fetchCategories());
+    }
+  }, [dispatch, categories.length]);
+
+  const handleQuickAddCategory = async (e) => {
+    if (e) e.preventDefault();
+    setCatError('');
+    const trimmed = newCatName.trim();
+    if (!trimmed) {
+      setCatError('Category name is required');
+      return;
+    }
+    const dup = categories.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (dup) {
+      setCategory(dup.id);
+      setShowAddCategory(false);
+      setNewCatName('');
+      dispatch(addToast({ message: `Selected existing category "${dup.name}"`, type: 'info' }));
+      return;
+    }
+
+    setCreatingCat(true);
+    try {
+      const catScope = type === 'DEBIT' ? 'EXPENSE' : 'INCOME';
+      const created = await dispatch(
+        createCategory({
+          name: trimmed,
+          type: catScope,
+          color: newCatColor,
+        })
+      ).unwrap();
+
+      setCategory(created.id);
+      dispatch(addToast({ message: `Category "${created.name}" created!`, type: 'success' }));
+      setNewCatName('');
+      setShowAddCategory(false);
+      dispatch(fetchCategories());
+    } catch (err) {
+      const msg = err?.message || (typeof err === 'string' ? err : 'Failed to add category');
+      setCatError(msg);
+      dispatch(addToast({ message: msg, type: 'error' }));
+    } finally {
+      setCreatingCat(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,10 +182,29 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
       {/* Category & Payment Method */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Category</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Category</label>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddCategory(!showAddCategory);
+                setCatError('');
+              }}
+              className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
+            >
+              <Plus size={12} />
+              <span>{showAddCategory ? 'Cancel' : 'New'}</span>
+            </button>
+          </div>
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === '__NEW__') {
+                setShowAddCategory(true);
+              } else {
+                setCategory(e.target.value);
+              }
+            }}
             className="w-full bg-slate-50 dark:bg-[#161c2d] border border-slate-200 dark:border-white/10 rounded-2xl py-2.5 px-3 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-[#161c2d] transition-colors"
           >
             <option value="">Select Category</option>
@@ -132,6 +213,7 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
                 {c.name}
               </option>
             ))}
+            <option value="__NEW__">+ Create New Category...</option>
           </select>
         </div>
 
@@ -151,6 +233,71 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
           </select>
         </div>
       </div>
+
+      {/* Inline Quick Category Creator */}
+      {showAddCategory && (
+        <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/20 space-y-2.5 transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+              Quick Add {type === 'DEBIT' ? 'Expense' : 'Income'} Category
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAddCategory(false)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {catError && (
+            <p className="text-[11px] text-rose-500 font-medium">{catError}</p>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              autoFocus
+              placeholder="e.g. Subscriptions, Gaming, Fuel"
+              value={newCatName}
+              onChange={(e) => {
+                setNewCatName(e.target.value);
+                if (catError) setCatError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleQuickAddCategory();
+                }
+              }}
+              className="flex-1 bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-white/10 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              type="button"
+              disabled={creatingCat || !newCatName.trim()}
+              onClick={handleQuickAddCategory}
+              className="px-3 py-2 rounded-xl text-xs font-semibold text-white gradient-primary-btn disabled:opacity-50 shrink-0 shadow-sm"
+            >
+              {creatingCat ? 'Adding...' : 'Add'}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 mr-1">Color:</span>
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setNewCatColor(c)}
+                className={`w-5 h-5 rounded-full border transition-transform ${
+                  newCatColor === c ? 'scale-125 border-indigo-600 dark:border-white' : 'border-transparent'
+                }`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Date Input */}
       <div>

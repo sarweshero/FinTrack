@@ -11,6 +11,7 @@ import SkeletonCard from '../components/ui/SkeletonCard';
 import FAB from '../components/ui/FAB';
 
 import { fetchTransactions, deleteTransaction } from '../store/slices/transactionSlice';
+import { fetchCategories } from '../store/slices/categorySlice';
 import { fetchDashboardData } from '../store/slices/dashboardSlice';
 import { openModal, addToast } from '../store/slices/uiSlice';
 
@@ -21,6 +22,7 @@ export const DebitPage = () => {
 
   useEffect(() => {
     dispatch(fetchTransactions({ type: 'DEBIT' }));
+    dispatch(fetchCategories());
     dispatch(fetchDashboardData(30));
   }, [dispatch]);
 

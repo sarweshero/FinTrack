@@ -7,7 +7,7 @@ export const fetchCategories = createAsyncThunk(
     try {
       return await categoryAPI.list(params);
     } catch (err) {
-      return rejectWithValue(err.message);
+      return rejectWithValue(err.message || 'Failed to load categories');
     }
   }
 );
@@ -18,7 +18,7 @@ export const createCategory = createAsyncThunk(
     try {
       return await categoryAPI.create(categoryData);
     } catch (err) {
-      return rejectWithValue(err.message);
+      return rejectWithValue(err.message || 'Failed to create category');
     }
   }
 );
@@ -29,7 +29,7 @@ export const updateCategory = createAsyncThunk(
     try {
       return await categoryAPI.update(id, data);
     } catch (err) {
-      return rejectWithValue(err.message);
+      return rejectWithValue(err.message || 'Failed to update category');
     }
   }
 );
@@ -41,7 +41,7 @@ export const deleteCategory = createAsyncThunk(
       await categoryAPI.delete(id);
       return id;
     } catch (err) {
-      return rejectWithValue(err.message);
+      return rejectWithValue(err.message || 'Failed to delete category');
     }
   }
 );
@@ -58,17 +58,24 @@ const categorySlice = createSlice({
     builder
       .addCase(fetchCategories.pending, (state) => {
         state.status = 'loading';
+        state.error = null;
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.status = 'succeeded';
         state.items = action.payload;
+        state.error = null;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
       })
       .addCase(createCategory.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        const index = state.items.findIndex((item) => item.id === action.payload.id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        } else {
+          state.items.unshift(action.payload);
+        }
       })
       .addCase(updateCategory.fulfilled, (state, action) => {
         const index = state.items.findIndex((item) => item.id === action.payload.id);

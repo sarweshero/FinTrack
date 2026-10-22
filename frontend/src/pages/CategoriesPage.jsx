@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tags, Plus, Trash2, Edit2 } from 'lucide-react';
@@ -20,10 +20,15 @@ export const CategoriesPage = () => {
   const [filterType, setFilterType] = useState('ALL');
 
   useEffect(() => {
-    const params = {};
-    if (filterType !== 'ALL') params.type = filterType;
-    dispatch(fetchCategories(params));
-  }, [dispatch, filterType]);
+    dispatch(fetchCategories());
+  }, [dispatch]);
+
+  const displayedCategories = useMemo(() => {
+    return items.filter((cat) => {
+      if (filterType === 'ALL') return true;
+      return cat.type === filterType || cat.type === 'BOTH';
+    });
+  }, [items, filterType]);
 
   const handleDelete = async (id, name, isDefault) => {
     if (isDefault) {
@@ -41,7 +46,8 @@ export const CategoriesPage = () => {
   };
 
   const openAdd = () => {
-    dispatch(openModal({ name: 'CATEGORY' }));
+    const defaultType = filterType === 'ALL' ? 'EXPENSE' : filterType;
+    dispatch(openModal({ name: 'CATEGORY', data: { defaultType } }));
   };
 
   return (
@@ -96,11 +102,15 @@ export const CategoriesPage = () => {
 
       {status === 'loading' && items.length === 0 ? (
         <SkeletonCard count={4} height="h-20" />
-      ) : items.length === 0 ? (
+      ) : displayedCategories.length === 0 ? (
         <EmptyState
           icon={Tags}
-          title="No categories found"
-          description="Create categories to organize your financial transactions."
+          title={filterType === 'ALL' ? 'No categories found' : `No ${filterType.toLowerCase()} categories`}
+          description={
+            filterType === 'ALL'
+              ? 'Create categories to organize your financial transactions.'
+              : `You have no ${filterType.toLowerCase()} categories yet. Click below to add one!`
+          }
           actionLabel="Create Category"
           onAction={openAdd}
         />
@@ -115,7 +125,7 @@ export const CategoriesPage = () => {
           className="grid grid-cols-1 sm:grid-cols-2 gap-3"
         >
           <AnimatePresence>
-            {items.map((cat) => (
+            {displayedCategories.map((cat) => (
               <motion.div
                 key={cat.id}
                 variants={{
