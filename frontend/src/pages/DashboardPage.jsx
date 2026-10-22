@@ -165,7 +165,7 @@ export const DashboardPage = () => {
                 <div className="mt-1 flex items-baseline gap-2">
                   <AnimatedCounter
                     value={summary.net_balance}
-                    prefix="$"
+                    prefix="₹"
                     className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
                       summary.net_balance >= 0 ? 'text-slate-900 dark:text-white' : 'text-rose-600 dark:text-rose-400'
                     }`}
@@ -184,19 +184,19 @@ export const DashboardPage = () => {
                 <div className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-1.5 min-w-[90px]">
                   <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-semibold">Cash In-Hand</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    ${(summary.cash_balance ?? (summary.total_income - summary.total_expense)).toFixed(2)}
+                    ₹{(summary.cash_balance ?? (summary.total_income - summary.total_expense)).toFixed(2)}
                   </span>
                 </div>
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-1.5 min-w-[90px]">
                   <span className="text-emerald-600 dark:text-emerald-400/80 block text-[10px] uppercase font-semibold">Need to Pay Me</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    +${summary.remainder_to_receive.toFixed(2)}
+                    +₹{summary.remainder_to_receive.toFixed(2)}
                   </span>
                 </div>
                 <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-1.5 min-w-[90px]">
                   <span className="text-rose-600 dark:text-rose-400/80 block text-[10px] uppercase font-semibold">Money Borrowed</span>
                   <span className="font-bold text-rose-600 dark:text-rose-400">
-                    -${summary.remainder_to_pay.toFixed(2)}
+                    -₹{summary.remainder_to_pay.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -232,7 +232,7 @@ export const DashboardPage = () => {
             amount={summary.total_saved}
             icon={PiggyBank}
             color="purple"
-            subtitle={`Target: $${summary.total_target_savings.toFixed(0)}`}
+            subtitle={`Target: ₹${summary.total_target_savings.toFixed(0)}`}
           />
         </motion.div>
 
@@ -280,15 +280,15 @@ export const DashboardPage = () => {
             <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200 dark:border-white/5 text-center text-xs">
               <div>
                 <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase">Period Spend</span>
-                <span className="font-bold text-rose-600 dark:text-rose-400">${trends.total_spend.toFixed(2)}</span>
+                <span className="font-bold text-rose-600 dark:text-rose-400">₹{trends.total_spend.toFixed(2)}</span>
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase">Period Income</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">${trends.total_income.toFixed(2)}</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{trends.total_income.toFixed(2)}</span>
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase">Period Given</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">${trends.total_given.toFixed(2)}</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">₹{trends.total_given.toFixed(2)}</span>
               </div>
             </div>
           </GlassCard>
@@ -311,7 +311,7 @@ export const DashboardPage = () => {
                       )}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Total Pending: <AnimatedCounter value={whoOwes.total_receivable} prefix="$" className="font-bold text-amber-600 dark:text-amber-400" />
+                      Total Pending: <AnimatedCounter value={whoOwes.total_receivable} prefix="₹" className="font-bold text-amber-600 dark:text-amber-400" />
                     </p>
                   </div>
                   <Link
@@ -346,7 +346,7 @@ export const DashboardPage = () => {
 
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                            ${item.remainder_due.toFixed(2)}
+                            ₹{item.remainder_due.toFixed(2)}
                           </span>
                           <button
                             onClick={() => openSettle({ id: item.id, person_name: item.person_name, remaining_amount: item.remainder_due, debt_type: 'GIVEN' })}
@@ -416,7 +416,7 @@ export const DashboardPage = () => {
                       </div>
                       <div className="flex items-center gap-2 font-medium">
                         <span className="text-slate-500 dark:text-slate-400">{cat.percentage}%</span>
-                        <span className="text-slate-900 dark:text-white">${cat.amount.toFixed(2)}</span>
+                        <span className="text-slate-900 dark:text-white">₹{cat.amount.toFixed(2)}</span>
                       </div>
                     </div>
                   ))}

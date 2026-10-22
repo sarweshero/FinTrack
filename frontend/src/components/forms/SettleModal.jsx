@@ -48,7 +48,7 @@ export const SettleModal = () => {
 
       dispatch(
         addToast({
-          message: `Recorded payment of $${amount} for ${debt.person_name}!`,
+          message: `Recorded payment of ₹${amount} for ${debt.person_name}!`,
           type: 'success',
         })
       );
@@ -74,25 +74,25 @@ export const SettleModal = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-          <span>Total: ${Number(debt?.initial_amount || 0).toFixed(2)}</span>
+          <span>Total: ₹{Number(debt?.initial_amount || 0).toFixed(2)}</span>
           <span className="font-semibold text-amber-600 dark:text-amber-400">
-            Remaining: ${Number(debt?.remaining_amount || 0).toFixed(2)}
+            Remaining: ₹{Number(debt?.remaining_amount || 0).toFixed(2)}
           </span>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Payment Amount ($)</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Payment Amount (₹)</label>
             <button
               type="button"
               onClick={handleFullPay}
               className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold"
             >
-              Pay Full (${Number(debt?.remaining_amount || 0).toFixed(2)})
+              Pay Full (₹{Number(debt?.remaining_amount || 0).toFixed(2)})
             </button>
           </div>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500">₹</span>
             <input
               type="number"
               step="0.01"

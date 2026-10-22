@@ -97,7 +97,7 @@ export const RemindersPage = () => {
                   : 'text-slate-700 dark:text-slate-300'
               }`}
             >
-              {netRemainder > 0 ? '+' : ''}${Math.abs(netRemainder).toFixed(2)}
+              {netRemainder > 0 ? '+' : ''}₹{Math.abs(netRemainder).toFixed(2)}
             </span>
             <Badge
               variant={
@@ -145,11 +145,11 @@ export const RemindersPage = () => {
           <div className="mt-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 block">Remainder to Collect</span>
             <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              <AnimatedCounter value={givenByMe.remainder_to_receive} prefix="$" />
+              <AnimatedCounter value={givenByMe.remainder_to_receive} prefix="₹" />
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex justify-between">
-              <span>Total Given: ${Number(givenByMe.total_amount_given || 0).toFixed(2)}</span>
-              <span>Recovered: ${Number(givenByMe.total_received_back || 0).toFixed(2)}</span>
+              <span>Total Given: ₹{Number(givenByMe.total_amount_given || 0).toFixed(2)}</span>
+              <span>Recovered: ₹{Number(givenByMe.total_received_back || 0).toFixed(2)}</span>
             </div>
           </div>
         </GlassCard>
@@ -182,11 +182,11 @@ export const RemindersPage = () => {
           <div className="mt-2">
             <span className="text-xs text-slate-500 dark:text-slate-400 block">Remainder to Return</span>
             <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-              <AnimatedCounter value={givenToMe.remainder_to_pay} prefix="$" />
+              <AnimatedCounter value={givenToMe.remainder_to_pay} prefix="₹" />
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex justify-between">
-              <span>Total Borrowed: ${Number(givenToMe.total_amount_taken || 0).toFixed(2)}</span>
-              <span>Repaid: ${Number(givenToMe.total_repaid || 0).toFixed(2)}</span>
+              <span>Total Borrowed: ₹{Number(givenToMe.total_amount_taken || 0).toFixed(2)}</span>
+              <span>Repaid: ₹{Number(givenToMe.total_repaid || 0).toFixed(2)}</span>
             </div>
           </div>
         </GlassCard>
@@ -271,9 +271,9 @@ export const RemindersPage = () => {
                             </div>
 
                             <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                              <span>Initial: ${item.initial_amount.toFixed(2)}</span>
+                              <span>Initial: ₹{item.initial_amount.toFixed(2)}</span>
                               <span className="text-slate-400 dark:text-slate-500"> • </span>
-                              <span>Recovered: ${item.settled_amount.toFixed(2)}</span>
+                              <span>Recovered: ₹{item.settled_amount.toFixed(2)}</span>
                             </div>
 
                             {item.due_date && (
@@ -309,7 +309,7 @@ export const RemindersPage = () => {
                                 Due to Collect
                               </span>
                               <span className="text-base font-bold text-amber-600 dark:text-amber-400">
-                                ${item.remainder_amount.toFixed(2)}
+                                ₹{item.remainder_amount.toFixed(2)}
                               </span>
                             </div>
                             <button
@@ -339,7 +339,7 @@ export const RemindersPage = () => {
                   </span>
                 </h3>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Total: ${Number(givenToMe.remainder_to_pay || 0).toFixed(2)}
+                  Total: ₹{Number(givenToMe.remainder_to_pay || 0).toFixed(2)}
                 </span>
               </div>
 
@@ -376,9 +376,9 @@ export const RemindersPage = () => {
                             </div>
 
                             <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                              <span>Initial: ${item.initial_amount.toFixed(2)}</span>
+                              <span>Initial: ₹{item.initial_amount.toFixed(2)}</span>
                               <span className="text-slate-400 dark:text-slate-500"> • </span>
-                              <span>Repaid: ${item.settled_amount.toFixed(2)}</span>
+                              <span>Repaid: ₹{item.settled_amount.toFixed(2)}</span>
                             </div>
 
                             {item.due_date && (
@@ -414,7 +414,7 @@ export const RemindersPage = () => {
                                 You Owe
                               </span>
                               <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">
-                                ${item.remainder_amount.toFixed(2)}
+                                ₹{item.remainder_amount.toFixed(2)}
                               </span>
                             </div>
                             <button

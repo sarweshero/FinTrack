@@ -99,9 +99,9 @@ const PeerDebtForm = ({ initialData, defaultType, onClose }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount ($)</label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Amount (₹)</label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500">$</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500">₹</span>
           <input
             type="number"
             step="0.01"

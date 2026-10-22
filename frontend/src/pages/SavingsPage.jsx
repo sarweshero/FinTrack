@@ -62,9 +62,9 @@ export const SavingsPage = () => {
             Total Savings Progress
           </span>
           <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-            ${summary.total_saved.toFixed(2)}{' '}
+            ₹{summary.total_saved.toFixed(2)}{' '}
             <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
-              / ${summary.total_target_savings.toFixed(2)}
+              / ₹{summary.total_target_savings.toFixed(2)}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -153,8 +153,8 @@ export const SavingsPage = () => {
                           </div>
 
                           <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                            <span className="font-bold text-slate-900 dark:text-white">${current.toFixed(2)}</span>
-                            <span className="text-slate-500 dark:text-slate-400"> of ${target.toFixed(2)}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">₹{current.toFixed(2)}</span>
+                            <span className="text-slate-500 dark:text-slate-400"> of ₹{target.toFixed(2)}</span>
                           </div>
 
                           {goal.target_date && (

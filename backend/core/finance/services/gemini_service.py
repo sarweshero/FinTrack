@@ -120,13 +120,13 @@ class GeminiService:
         client = genai.Client(api_key=api_key)
 
         prompt = f"""
-You are an expert personal financial advisor and auditor. Analyze this user's 30-day financial snapshot:
+You are an expert personal financial advisor and auditor. All amounts are in Indian Rupees (₹ / INR). Analyze this user's 30-day financial snapshot:
 ```json
 {json.dumps(digest, indent=2)}
 ```
 
-Provide a high-quality financial assessment. Respond in two parts:
-1. A concise Markdown report with:
+Provide a high-quality financial assessment in Indian Rupees (₹). Respond in two parts:
+1. A concise Markdown report using ₹ symbol for all amounts with:
    - ### Financial Health Overview
    - ### Spending & Savings Evaluation
    - ### Peer Dues & Receivables Action Plan
@@ -231,26 +231,26 @@ Provide a high-quality financial assessment. Respond in two parts:
 
         markdown = f"""### Financial Health Overview
 Your financial score for the last 30 days is **{score}/100 ({status})**.
-- **Total Income**: ${income:,.2f}
-- **Total Expenses**: ${expense:,.2f}
-- **Net Cashflow**: ${net_balance:,.2f}
+- **Total Income**: ₹{income:,.2f}
+- **Total Expenses**: ₹{expense:,.2f}
+- **Net Cashflow**: ₹{net_balance:,.2f}
 - **Savings Rate**: {savings_rate}%
 
 ### Spending & Savings Evaluation
 - Your highest spending category was **{top_cat_name}**, accounting for **{top_cat_pct}%** of your total monthly outflow.
-- Total accumulated savings across goals currently stand at **${savings:,.2f}**.
+- Total accumulated savings across goals currently stand at **₹{savings:,.2f}**.
 - {"Great job maintaining a positive savings buffer!" if net_balance > 0 else "Warning: Your monthly outflow exceeded your inflow. Focus on trimming discretionary categories."}
 
 ### Peer Dues & Receivables Action Plan
-- **Money Given to Others**: You have **${remainder_to_receive:,.2f}** pending to be collected from peers.
-- **Money Borrowed from Others**: You owe **${remainder_to_pay:,.2f}** to peers that needs repayment.
-- **Net Peer Remainder**: **${(remainder_to_receive - remainder_to_pay):,.2f}**.
+- **Money Given to Others**: You have **₹{remainder_to_receive:,.2f}** pending to be collected from peers.
+- **Money Borrowed from Others**: You owe **₹{remainder_to_pay:,.2f}** to peers that needs repayment.
+- **Net Peer Remainder**: **₹{(remainder_to_receive - remainder_to_pay):,.2f}**.
 {"- You have overdue pending collections. Send polite payment reminders via the Reminders tab." if digest.get("overdue_receivables") else "- No urgent overdue peer dues detected."}
 
 ### 3 Key Actionable Recommendations for Next Month
 1. **Target {top_cat_name}**: Look for 10-15% reduction in your largest spending category.
-2. **Collect Outstanding Remainders**: Prioritize collecting the ${remainder_to_receive:,.2f} owed to you before lending further.
-3. **Automate Savings**: Move your positive cashflow (${max(0, net_balance):,.2f}) into your active savings targets at the start of the month.
+2. **Collect Outstanding Remainders**: Prioritize collecting the ₹{remainder_to_receive:,.2f} owed to you before lending further.
+3. **Automate Savings**: Move your positive cashflow (₹{max(0, net_balance):,.2f}) into your active savings targets at the start of the month.
 """
 
         parsed_json = {

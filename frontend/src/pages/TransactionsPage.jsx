@@ -224,7 +224,7 @@ export const TransactionsPage = () => {
                           isDebit ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                       >
-                        {isDebit ? '-' : '+'}${Number(tx.amount).toFixed(2)}
+                        {isDebit ? '-' : '+'}₹{Number(tx.amount).toFixed(2)}
                       </span>
 
                       {/* Hover action buttons */}

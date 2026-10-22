@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 export const AnimatedCounter = ({
   value = 0,
   duration = 1.0,
-  prefix = '$',
+  prefix = '₹',
   decimals = 2,
   className = '',
 }) => {
@@ -47,7 +47,7 @@ export const AnimatedCounter = ({
     };
   }, [value, duration]);
 
-  const formatted = displayValue.toLocaleString('en-US', {
+  const formatted = displayValue.toLocaleString('en-IN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

@@ -139,7 +139,7 @@ class BillScannerService:
         return (
             f"Today: {today}. "
             f"Available categories (id:name:type) — {cat_list}. "
-            "Extract the following from this bill/receipt image and respond ONLY with valid JSON "
+            "Extract the following from this bill/receipt image (amounts in Indian Rupees ₹ / INR) and respond ONLY with valid JSON "
             "(no markdown fences, no extra text):\n"
             '{"type":"DEBIT|CREDIT","title":"<merchant or payer>","amount":<number>,'
             '"date":"<YYYY-MM-DD or null>","category_id":<int or null>,'

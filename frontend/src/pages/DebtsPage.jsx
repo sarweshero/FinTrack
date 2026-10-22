@@ -63,14 +63,14 @@ export const DebtsPage = () => {
           amount={summary.remainder_to_receive}
           icon={HandCoins}
           color="amber"
-          subtitle={`Total Given: $${summary.total_amount_given.toFixed(2)}`}
+          subtitle={`Total Given: ₹${summary.total_amount_given.toFixed(2)}`}
         />
         <StatCard
           title="Money Borrowed (To Pay)"
           amount={summary.remainder_to_pay}
           icon={Users}
           color="indigo"
-          subtitle={`Total Borrowed: $${summary.total_amount_borrowed.toFixed(2)}`}
+          subtitle={`Total Borrowed: ₹${summary.total_amount_borrowed.toFixed(2)}`}
         />
       </div>
 
@@ -169,9 +169,9 @@ export const DebtsPage = () => {
                         )}
 
                         <div className="text-xs text-slate-600 dark:text-slate-300 mt-2">
-                          <span>Initial: ${Number(debt.initial_amount).toFixed(2)}</span>
+                          <span>Initial: ₹{Number(debt.initial_amount).toFixed(2)}</span>
                           <span className="text-slate-400 dark:text-slate-500"> • </span>
-                          <span>Settled: ${Number(debt.settled_amount).toFixed(2)}</span>
+                          <span>Settled: ₹{Number(debt.settled_amount).toFixed(2)}</span>
                         </div>
 
                         {debt.due_date && (
@@ -201,7 +201,7 @@ export const DebtsPage = () => {
                               isGiven ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'
                             }`}
                           >
-                            ${Number(debt.remaining_amount).toFixed(2)}
+                            ₹{Number(debt.remaining_amount).toFixed(2)}
                           </span>
                         </div>
 

@@ -4,7 +4,7 @@ import AnimatedCounter from './AnimatedCounter';
 export const StatCard = ({
   title,
   amount = 0,
-  prefix = '$',
+  prefix = '₹',
   icon: Icon,
   trend,
   color = 'indigo',

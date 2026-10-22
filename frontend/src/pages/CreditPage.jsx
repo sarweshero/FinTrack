@@ -105,7 +105,7 @@ export const CreditPage = () => {
 
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                      +${Number(tx.amount).toFixed(2)}
+                      +₹{Number(tx.amount).toFixed(2)}
                     </span>
                     <div className="flex items-center gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                       <button

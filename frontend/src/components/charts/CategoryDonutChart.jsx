@@ -14,7 +14,7 @@ const CustomDonutTooltip = ({ active, payload }) => {
           <span className="font-semibold text-slate-900 dark:text-white">{data.category_name}</span>
         </div>
         <div className="text-slate-600 dark:text-slate-300">
-          ${data.amount.toFixed(2)} ({data.percentage}%)
+          ₹{data.amount.toFixed(2)} ({data.percentage}%)
         </div>
       </div>
     );

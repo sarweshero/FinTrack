@@ -24,7 +24,7 @@ const CustomTooltip = ({ active, payload, label }) => {
                 />
                 {entry.name}:
               </span>
-              <span className="font-bold text-slate-900 dark:text-white">${Number(entry.value).toFixed(2)}</span>
+              <span className="font-bold text-slate-900 dark:text-white">₹{Number(entry.value).toFixed(2)}</span>
             </div>
           ))}
         </div>

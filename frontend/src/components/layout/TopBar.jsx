@@ -68,7 +68,7 @@ export const TopBar = () => {
             <span className="text-slate-500 dark:text-slate-400">Total:</span>
             <AnimatedCounter
               value={summary.net_balance}
-              prefix="$"
+              prefix="₹"
               className={summary.net_balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}
             />
           </div>

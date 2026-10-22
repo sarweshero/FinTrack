@@ -39,7 +39,7 @@ export const DepositModal = () => {
         })
       ).unwrap();
 
-      dispatch(addToast({ message: `Deposited $${amount} to ${goal.title}!`, type: 'success' }));
+      dispatch(addToast({ message: `Deposited ₹${amount} to ${goal.title}!`, type: 'success' }));
       dispatch(fetchSavingsGoals());
       dispatch(fetchDashboardData(30));
       handleClose();
@@ -58,16 +58,16 @@ export const DepositModal = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-          <span>Target: ${Number(goal?.target_amount || 0).toFixed(2)}</span>
+          <span>Target: ₹{Number(goal?.target_amount || 0).toFixed(2)}</span>
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-            Current: ${Number(goal?.current_amount || 0).toFixed(2)} ({goal?.progress_percentage || 0}%)
+            Current: ₹{Number(goal?.current_amount || 0).toFixed(2)} ({goal?.progress_percentage || 0}%)
           </span>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Deposit Amount ($)</label>
+          <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Deposit Amount (₹)</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">₹</span>
             <input
               type="number"
               step="0.01"

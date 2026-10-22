@@ -60,9 +60,9 @@ const SavingsGoalForm = ({ initialData, onClose }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Target Amount ($)</label>
+        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">Target Amount (₹)</label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">$</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">₹</span>
           <input
             type="number"
             step="0.01"
