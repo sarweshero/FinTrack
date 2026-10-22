@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finpulse-v1.0.2';
+const CACHE_NAME = 'finpulse-v1.0.3';
 
 const STATIC_PRECACHE = [
   '/',
@@ -47,32 +47,13 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Bypass cross-origin requests (e.g. direct API calls to backend)
-  if (url.origin !== self.location.origin) {
+  // Bypass cross-origin requests & API calls entirely
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api')) {
     return;
   }
 
-  // Bypass non-GET requests (e.g. POST/PUT/DELETE API operations)
+  // Bypass non-GET requests (e.g. POST/PUT/DELETE operations)
   if (request.method !== 'GET') {
-    return;
-  }
-
-  // API calls: Network-first with short timeout
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        return new Response(
-          JSON.stringify({
-            error: 'You appear to be offline. Please reconnect to sync latest financial data.',
-            offline: true,
-          }),
-          {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      })
-    );
     return;
   }
 

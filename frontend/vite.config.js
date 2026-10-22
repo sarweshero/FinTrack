@@ -13,12 +13,6 @@ export default defineConfig({
   server: {
     host: true,
     port: 2005,
-    proxy: {
-      '/api': {
-        target: 'https://backend-sarwesh-fin.vercel.app',
-        changeOrigin: true,
-      }
-    }
   },
   preview: {
     host: true,

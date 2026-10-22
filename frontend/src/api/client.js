@@ -4,19 +4,11 @@ const rawBaseURL =
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_API_URL ||
   import.meta.env.VITE_BASE_URL ||
-  (import.meta.env.DEV ? '/api' : 'https://backend-sarwesh-fin.vercel.app');
+  'https://backend-sarwesh-fin.vercel.app';
 
-const getCleanBaseURL = (url) => {
-  if (!url) return '/api';
-  const trimmed = url.trim().replace(/\/+$/, '');
-  if (trimmed === '/api') return '/api';
-  if (!trimmed.endsWith('/api') && !trimmed.includes('/api/')) {
-    return `${trimmed}/api`;
-  }
-  return trimmed;
-};
+const cleanBase = rawBaseURL.trim().replace(/\/+$/, '');
+const baseURL = cleanBase.endsWith('/api') ? cleanBase : `${cleanBase}/api`;
 
-const baseURL = getCleanBaseURL(rawBaseURL);
 
 const client = axios.create({
   baseURL,
