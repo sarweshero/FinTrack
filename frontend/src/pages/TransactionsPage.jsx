@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,7 +9,8 @@ import {
   Edit2,
   Calendar,
   ReceiptText,
-  Filter,
+  Loader2,
+  CheckCircle,
 } from 'lucide-react';
 
 import PageTransition from '../components/layout/PageTransition';
@@ -21,13 +22,13 @@ import BillDataAccordion from '../components/transactions/BillDataAccordion';
 
 import {
   fetchTransactions,
+  fetchMoreTransactions,
   deleteTransaction,
 } from '../store/slices/transactionSlice';
 import { fetchCategories } from '../store/slices/categorySlice';
 import { openModal, addToast } from '../store/slices/uiSlice';
 import { fetchDashboardData } from '../store/slices/dashboardSlice';
 
-// Helper to format date headers (Today, Yesterday, or formatted date)
 const formatDateHeader = (dateStr) => {
   if (!dateStr) return 'Past Transactions';
   try {
@@ -49,17 +50,22 @@ const formatDateHeader = (dateStr) => {
 
 export const TransactionsPage = () => {
   const dispatch = useDispatch();
-  const { items, status } = useSelector((state) => state.transactions);
+  const { items, status, loadingMore, hasMore } = useSelector(
+    (state) => state.transactions
+  );
   const categories = useSelector((state) => state.categories.items);
 
   const [activeTab, setActiveTab] = useState('ALL'); // 'ALL' | 'DEBIT' | 'CREDIT'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
 
+  const observerTarget = useRef(null);
+
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
+  // Initial and filtered query load
   useEffect(() => {
     const params = {};
     if (activeTab !== 'ALL') params.type = activeTab;
@@ -68,6 +74,36 @@ export const TransactionsPage = () => {
 
     dispatch(fetchTransactions(params));
   }, [dispatch, activeTab, selectedCategory, searchTerm]);
+
+  // Token-based pagination infinite scroll via IntersectionObserver
+  useEffect(() => {
+    if (!hasMore || loadingMore || status === 'loading') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          const params = {};
+          if (activeTab !== 'ALL') params.type = activeTab;
+          if (selectedCategory) params.category = selectedCategory;
+          if (searchTerm.trim()) params.search = searchTerm.trim();
+
+          dispatch(fetchMoreTransactions(params));
+        }
+      },
+      { threshold: 0.1, rootMargin: '160px' }
+    );
+
+    const currentEl = observerTarget.current;
+    if (currentEl) {
+      observer.observe(currentEl);
+    }
+
+    return () => {
+      if (currentEl) {
+        observer.unobserve(currentEl);
+      }
+    };
+  }, [dispatch, hasMore, loadingMore, status, activeTab, selectedCategory, searchTerm]);
 
   const handleDelete = async (id, title) => {
     if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
@@ -272,7 +308,14 @@ export const TransactionsPage = () => {
                           layout
                         >
                           <GlassCard
-                            onClick={() => dispatch(openModal({ name: 'TRANSACTION_DETAIL', data: tx }))}
+                            onClick={() =>
+                              dispatch(
+                                openModal({
+                                  name: 'TRANSACTION_DETAIL',
+                                  data: tx,
+                                })
+                              )
+                            }
                             className="p-3.5 sm:p-4 group border border-slate-200/70 dark:border-white/5 hover:border-indigo-500/40 hover:shadow-md dark:hover:bg-white/[0.03] transition-all cursor-pointer"
                           >
                             {/* Main Transaction Header */}
@@ -373,9 +416,10 @@ export const TransactionsPage = () => {
                               </p>
                             )}
 
-                            {/* Extracted Bill Data Breakdown */}
+                            {/* Extracted Bill Data Breakdown with Split Action */}
                             {hasBillData && (
                               <BillDataAccordion
+                                tx={tx}
                                 billData={tx.bill_data}
                                 defaultOpen={false}
                               />
@@ -389,6 +433,23 @@ export const TransactionsPage = () => {
               );
             })}
           </AnimatePresence>
+
+          {/* Token-based Pagination Infinite Scroll Sentinel & Loader */}
+          {loadingMore && (
+            <div className="pt-2">
+              <SkeletonCard count={2} height="h-20" />
+            </div>
+          )}
+
+          {/* Observer Sentinel Element */}
+          <div ref={observerTarget} className="h-6 w-full pointer-events-none opacity-0" />
+
+          {!hasMore && items.length > 5 && (
+            <div className="py-4 text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
+              <CheckCircle size={13} className="text-emerald-500" />
+              <span>All transactions loaded</span>
+            </div>
+          )}
         </motion.div>
       )}
 

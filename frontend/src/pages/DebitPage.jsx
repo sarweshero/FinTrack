@@ -146,7 +146,7 @@ export const DebitPage = () => {
 
                   {/* Scanned bill breakdown */}
                   {tx.bill_data && (
-                    <BillDataAccordion billData={tx.bill_data} defaultOpen={false} />
+                    <BillDataAccordion tx={tx} billData={tx.bill_data} defaultOpen={false} />
                   )}
                 </GlassCard>
               </motion.div>

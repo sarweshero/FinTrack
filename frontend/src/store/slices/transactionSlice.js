@@ -5,7 +5,39 @@ export const fetchTransactions = createAsyncThunk(
   'transactions/fetchTransactions',
   async (params = {}, { rejectWithValue }) => {
     try {
-      return await transactionAPI.list(params);
+      const data = await transactionAPI.list(params);
+      if (Array.isArray(data)) {
+        return { results: data, nextToken: null, next: null };
+      }
+      return {
+        results: data.results || [],
+        nextToken: data.next_token || null,
+        next: data.next || null,
+      };
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+export const fetchMoreTransactions = createAsyncThunk(
+  'transactions/fetchMoreTransactions',
+  async (params = {}, { getState, rejectWithValue }) => {
+    try {
+      const { nextToken, loadingMore } = getState().transactions;
+      if (!nextToken || loadingMore) {
+        return { results: [], nextToken: null, next: null };
+      }
+      const queryParams = { ...params, token: nextToken };
+      const data = await transactionAPI.list(queryParams);
+      if (Array.isArray(data)) {
+        return { results: data, nextToken: null, next: null };
+      }
+      return {
+        results: data.results || [],
+        nextToken: data.next_token || null,
+        next: data.next || null,
+      };
     } catch (err) {
       return rejectWithValue(err.message);
     }
@@ -56,6 +88,9 @@ const transactionSlice = createSlice({
   initialState: {
     items: [],
     status: 'idle',
+    loadingMore: false,
+    nextToken: null,
+    hasMore: false,
     error: null,
     filters: {
       type: '',
@@ -83,17 +118,38 @@ const transactionSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Initial fetch
       .addCase(fetchTransactions.pending, (state) => {
         state.status = 'loading';
       })
       .addCase(fetchTransactions.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.items = action.payload;
+        state.items = action.payload.results;
+        state.nextToken = action.payload.nextToken;
+        state.hasMore = Boolean(action.payload.next);
       })
       .addCase(fetchTransactions.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
       })
+
+      // Infinite scroll fetchMore
+      .addCase(fetchMoreTransactions.pending, (state) => {
+        state.loadingMore = true;
+      })
+      .addCase(fetchMoreTransactions.fulfilled, (state, action) => {
+        state.loadingMore = false;
+        const existingIds = new Set(state.items.map((t) => t.id));
+        const freshItems = action.payload.results.filter((t) => !existingIds.has(t.id));
+        state.items.push(...freshItems);
+        state.nextToken = action.payload.nextToken;
+        state.hasMore = Boolean(action.payload.next);
+      })
+      .addCase(fetchMoreTransactions.rejected, (state) => {
+        state.loadingMore = false;
+      })
+
+      // Mutations
       .addCase(createTransaction.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
       })
@@ -111,4 +167,3 @@ const transactionSlice = createSlice({
 
 export const { setTransactionFilter, resetTransactionFilters } = transactionSlice.actions;
 export default transactionSlice.reducer;
-

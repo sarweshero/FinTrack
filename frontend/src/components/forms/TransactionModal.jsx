@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Plus, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, X, ReceiptText } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { closeModal, addToast } from '../../store/slices/uiSlice';
 import { createTransaction, updateTransaction, fetchTransactions } from '../../store/slices/transactionSlice';
@@ -14,6 +15,7 @@ const PRESET_COLORS = [
 
 const TransactionForm = ({ initialData, defaultType, onClose }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const categories = useSelector((state) => state.categories.items);
 
   const [type, setType] = useState(initialData?.type || defaultType || 'DEBIT');
@@ -125,6 +127,29 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Upload & Split Bill Banner (when adding new) */}
+      {!initialData && (
+        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-indigo-500/10 border border-dashed border-indigo-500/25 text-xs">
+          <div className="flex items-center gap-2">
+            <ReceiptText size={16} className="text-indigo-500 shrink-0" />
+            <div>
+              <p className="font-semibold text-slate-800 dark:text-slate-200 text-xs">Have a receipt?</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Scan to extract &amp; split products</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              dispatch(closeModal());
+              navigate('/scan-bill');
+            }}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors shadow-sm shrink-0"
+          >
+            Scan &amp; Split
+          </button>
+        </div>
+      )}
+
       {/* Type toggle */}
       <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/5">
         <button

@@ -1,22 +1,46 @@
 import { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ReceiptText, ChevronDown, ChevronUp, Sparkles, Store, CreditCard } from 'lucide-react';
+import {
+  ReceiptText,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Store,
+  CreditCard,
+  Scissors,
+} from 'lucide-react';
+import { openModal } from '../../store/slices/uiSlice';
 
-export default function BillDataAccordion({ billData, defaultOpen = false }) {
+export default function BillDataAccordion({ tx, billData, defaultOpen = false }) {
+  const dispatch = useDispatch();
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  if (!billData) return null;
+  const activeBill = billData || tx?.bill_data;
+  if (!activeBill) return null;
 
-  const lineItems = billData.line_items || [];
-  const confidence = billData.confidence || 'high';
-  const merchant = billData.merchant;
-  const paymentMethod = billData.payment_method;
+  const lineItems = activeBill.line_items || [];
+  const confidence = activeBill.confidence || 'high';
+  const merchant = activeBill.merchant;
+  const paymentMethod = activeBill.payment_method;
 
   const confidenceColor = {
     high: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     medium: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
     low: 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/20',
   }[confidence] || 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20';
+
+  const handleOpenSplit = (e) => {
+    e.stopPropagation();
+    if (tx) {
+      dispatch(
+        openModal({
+          name: 'SPLIT_TRANSACTION',
+          data: { transaction: tx, lineItems },
+        })
+      );
+    }
+  };
 
   return (
     <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
@@ -116,15 +140,28 @@ export default function BillDataAccordion({ billData, defaultOpen = false }) {
                 </p>
               )}
 
+              {/* Split products button directly inside accordion */}
+              {tx && lineItems.length > 0 && (
+                <div className="pt-1.5">
+                  <button
+                    type="button"
+                    onClick={handleOpenSplit}
+                    className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm shadow-indigo-500/20"
+                  >
+                    <Scissors size={12} /> Split into {lineItems.length} Product Transactions
+                  </button>
+                </div>
+              )}
+
               {/* Extracted Footer Notice */}
               <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400 dark:text-slate-500">
                 <span className="flex items-center gap-1">
                   <Sparkles size={11} className="text-indigo-400" />
                   Extracted via Gemini Vision
                 </span>
-                {billData.scanned_at && (
+                {activeBill.scanned_at && (
                   <span>
-                    Scanned: {new Date(billData.scanned_at).toLocaleDateString()}
+                    Scanned: {new Date(activeBill.scanned_at).toLocaleDateString()}
                   </span>
                 )}
               </div>
@@ -135,4 +172,3 @@ export default function BillDataAccordion({ billData, defaultOpen = false }) {
     </div>
   );
 }
-

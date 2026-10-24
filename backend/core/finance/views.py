@@ -1,10 +1,13 @@
 import threading
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlparse, parse_qs
+from django.db import transaction as db_transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import CursorPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -110,14 +113,60 @@ class CreditViewSet(viewsets.ModelViewSet):
         return qs
 
 
+class TransactionTokenPagination(CursorPagination):
+    """
+    Token/Cursor-based pagination for Transactions.
+    Supports infinite scrolling with opaque tokens:
+    ?token=<cursor_token>&page_size=15
+    """
+
+    page_size = 15
+    page_size_query_param = "page_size"
+    max_page_size = 50
+    ordering = ("-date", "-id")
+    cursor_query_param = "token"
+
+    def get_paginated_response(self, data):
+        next_url = self.get_next_link()
+        next_token = None
+        if next_url:
+            query = parse_qs(urlparse(next_url).query)
+            next_token = query.get(self.cursor_query_param, [None])[0]
+
+        prev_url = self.get_previous_link()
+        prev_token = None
+        if prev_url:
+            query = parse_qs(urlparse(prev_url).query)
+            prev_token = query.get(self.cursor_query_param, [None])[0]
+
+        return Response({
+            "next": next_url,
+            "next_token": next_token,
+            "previous": prev_url,
+            "previous_token": prev_token,
+            "results": data,
+        })
+
+
 class TransactionViewSet(viewsets.ModelViewSet):
     """
     Unified CRUD ViewSet for all Transactions (Debit & Credit).
-    Supports rich filtering by type, category, date range, payment method, and search.
+    Supports token-based cursor pagination, rich filtering, bill attachments,
+    and product-level transaction splitting.
     """
 
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
+    pagination_class = TransactionTokenPagination
+
+    def paginate_queryset(self, queryset):
+        # Allow disabling pagination if caller explicitly asks for all items
+        if (
+            self.request.query_params.get("paginate", "").lower() == "false"
+            or self.request.query_params.get("all", "").lower() == "true"
+        ):
+            return None
+        return super().paginate_queryset(queryset)
 
     def get_queryset(self):
         qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
@@ -140,6 +189,166 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
         return qs
+
+    @action(detail=True, methods=["post"], url_path="upload-bill")
+    def upload_bill(self, request, pk=None):
+        """
+        Upload a bill image directly to an existing transaction to extract
+        its spending products / line items.
+        """
+        tx = self.get_object()
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response(
+                {"error": "No image file provided. Send key 'image'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_bytes = image_file.read()
+        result = BillScannerService.scan(raw_bytes)
+
+        if not result.get("success"):
+            return Response(
+                {"error": result.get("error", "Scan failed.")},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        task = BillScanTask.objects.create(
+            status=BillScanTask.Status.COMPLETED,
+            extracted_data=result,
+            transaction=tx,
+        )
+
+        return Response(
+            {
+                "success": True,
+                "transaction_id": tx.id,
+                "bill_data": {
+                    "task_id": str(task.id),
+                    "merchant": result.get("title"),
+                    "confidence": result.get("confidence", "high"),
+                    "line_items": result.get("line_items", []),
+                    "payment_method": result.get("payment_method"),
+                    "scanned_at": task.created_at.isoformat(),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"], url_path="split")
+    def split(self, request, pk=None):
+        """
+        Split an existing transaction into individual spending product transactions.
+        Deletes the parent transaction in an atomic block so net balance remains exact.
+        """
+        parent_tx = self.get_object()
+        items = request.data.get("items", [])
+
+        if not items or not isinstance(items, list):
+            return Response(
+                {"error": "A list of 'items' is required to split the transaction."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_txs = []
+        with db_transaction.atomic():
+            for item in items:
+                title = str(item.get("title") or item.get("name") or "Split Product").strip()[:200]
+                amount_val = item.get("amount") or item.get("price")
+                try:
+                    amount = Decimal(str(amount_val))
+                    if amount <= Decimal("0.00"):
+                        continue
+                except (TypeError, ValueError, InvalidOperation):
+                    continue
+
+                cat_id = item.get("category_id") or item.get("category") or getattr(parent_tx.category, "id", None)
+                cat = Category.objects.filter(id=cat_id).first() if cat_id else parent_tx.category
+
+                new_tx = Transaction.objects.create(
+                    type=parent_tx.type,
+                    title=title,
+                    amount=amount,
+                    category=cat,
+                    payment_method=parent_tx.payment_method,
+                    date=parent_tx.date,
+                    description=item.get("notes") or f"Split product from {parent_tx.title}",
+                )
+                created_txs.append(new_tx)
+
+            if not created_txs:
+                return Response(
+                    {"error": "No valid product items could be created."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Re-link any scan_tasks to the first child transaction
+            for scan_task in parent_tx.scan_tasks.all():
+                scan_task.transaction = created_txs[0]
+                scan_task.save(update_fields=["transaction"])
+
+            # Delete the parent transaction to maintain exact net balance
+            parent_tx.delete()
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Successfully split into {len(created_txs)} product transactions.",
+                "created_transactions": TransactionSerializer(created_txs, many=True).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="split-bill")
+    def split_bill(self, request):
+        """
+        Directly create multiple product transactions from a split bill without a pre-existing transaction.
+        """
+        items = request.data.get("items", [])
+        tx_type = str(request.data.get("type", "DEBIT")).upper()
+        payment_method = str(request.data.get("payment_method", "OTHER")).upper()
+        tx_date = request.data.get("date") or timezone.localdate().isoformat()
+
+        if not items or not isinstance(items, list):
+            return Response(
+                {"error": "A list of 'items' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_txs = []
+        with db_transaction.atomic():
+            for item in items:
+                title = str(item.get("title") or item.get("name") or "Split Product").strip()[:200]
+                amount_val = item.get("amount") or item.get("price")
+                try:
+                    amount = Decimal(str(amount_val))
+                    if amount <= Decimal("0.00"):
+                        continue
+                except (TypeError, ValueError, InvalidOperation):
+                    continue
+
+                cat_id = item.get("category_id") or item.get("category")
+                cat = Category.objects.filter(id=cat_id).first() if cat_id else None
+
+                new_tx = Transaction.objects.create(
+                    type=tx_type,
+                    title=title,
+                    amount=amount,
+                    category=cat,
+                    payment_method=payment_method,
+                    date=tx_date,
+                    description=item.get("notes") or "Created from split bill",
+                )
+                created_txs.append(new_tx)
+
+        return Response(
+            {
+                "success": True,
+                "message": f"Created {len(created_txs)} split product transactions.",
+                "created_transactions": TransactionSerializer(created_txs, many=True).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SavingsGoalViewSet(viewsets.ModelViewSet):
