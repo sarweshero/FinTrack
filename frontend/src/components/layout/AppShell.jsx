@@ -8,6 +8,7 @@ import DepositModal from '../forms/DepositModal';
 import PeerDebtModal from '../forms/PeerDebtModal';
 import SettleModal from '../forms/SettleModal';
 import CategoryModal from '../forms/CategoryModal';
+import TransactionDetailModal from '../forms/TransactionDetailModal';
 import PWAInstallPrompt from '../ui/PWAInstallPrompt';
 
 export const AppShell = ({ children }) => {
@@ -25,6 +26,7 @@ export const AppShell = ({ children }) => {
 
       {/* Global Modals */}
       <TransactionModal />
+      <TransactionDetailModal />
       <SavingsGoalModal />
       <DepositModal />
       <PeerDebtModal />

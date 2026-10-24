@@ -34,6 +34,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     category_details = CategorySerializer(source="category", read_only=True)
+    bill_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Transaction
@@ -47,13 +48,27 @@ class TransactionSerializer(serializers.ModelSerializer):
             "description",
             "date",
             "payment_method",
+            "bill_data",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "bill_data", "created_at", "updated_at"]
         extra_kwargs = {
             "category": {"required": False, "allow_null": True},
         }
+
+    def get_bill_data(self, obj):
+        task = obj.scan_tasks.filter(status="COMPLETED").first()
+        if task and task.extracted_data:
+            return {
+                "task_id": str(task.id),
+                "merchant": task.extracted_data.get("title"),
+                "confidence": task.extracted_data.get("confidence", "high"),
+                "line_items": task.extracted_data.get("line_items", []),
+                "payment_method": task.extracted_data.get("payment_method"),
+                "scanned_at": task.created_at.isoformat() if task.created_at else None,
+            }
+        return None
 
     def validate_amount(self, value):
         if value <= Decimal("0.00"):

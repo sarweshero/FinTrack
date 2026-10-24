@@ -90,7 +90,10 @@ export const CreditPage = () => {
                 exit={{ opacity: 0, x: -30 }}
                 layout
               >
-                <GlassCard className="p-3.5 flex items-center justify-between gap-3 group">
+                <GlassCard
+                  onClick={() => dispatch(openModal({ name: 'TRANSACTION_DETAIL', data: tx }))}
+                  className="p-3.5 flex items-center justify-between gap-3 group border border-slate-200/70 dark:border-white/5 hover:border-indigo-500/40 hover:shadow-md dark:hover:bg-white/[0.03] transition-all cursor-pointer"
+                >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
                       <ArrowUpRight size={18} />
@@ -109,13 +112,19 @@ export const CreditPage = () => {
                     </span>
                     <div className="flex items-center gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => dispatch(openModal({ name: 'TRANSACTION', data: tx }))}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dispatch(openModal({ name: 'TRANSACTION', data: tx }));
+                        }}
                         className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
                       >
                         <Edit2 size={13} />
                       </button>
                       <button
-                        onClick={() => handleDelete(tx.id, tx.title)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(tx.id, tx.title);
+                        }}
                         className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-500/10"
                       >
                         <Trash2 size={13} />

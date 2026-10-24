@@ -69,7 +69,7 @@ class DebitViewSet(viewsets.ModelViewSet):
     serializer_class = DebitTransactionSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
         category = self.request.query_params.get("category")
         if category:
             qs = qs.filter(category_id=category)
@@ -94,7 +94,7 @@ class CreditViewSet(viewsets.ModelViewSet):
     serializer_class = CreditTransactionSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
         category = self.request.query_params.get("category")
         if category:
             qs = qs.filter(category_id=category)
@@ -120,7 +120,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
         tx_type = self.request.query_params.get("type")
         if tx_type:
             qs = qs.filter(type=tx_type.upper())
@@ -191,7 +191,7 @@ class PeerDebtViewSet(viewsets.ModelViewSet):
     serializer_class = PeerDebtSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
         debt_type = self.request.query_params.get("type")
         if debt_type:
             qs = qs.filter(debt_type=debt_type.upper())
