@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from ..models import AIReportCache, Transaction, PeerDebt, SavingsGoal
 from .analytics_service import AnalyticsService
+from .ai_gateway import AIGateway
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +115,7 @@ class GeminiService:
 
     @classmethod
     def _call_gemini_api(cls, api_key, digest):
-        """Calls Google Gemini API using the official google-genai SDK."""
-        from google import genai
-
-        client = genai.Client(api_key=api_key)
-
+        """Calls Google Gemini API via AIGateway with quota limiting and auto-retries."""
         prompt = f"""
 You are an expert personal financial advisor and auditor. All amounts are in Indian Rupees (₹ / INR). Analyze this user's 30-day financial snapshot:
 ```json
@@ -141,23 +138,12 @@ Provide a high-quality financial assessment in Indian Rupees (₹). Respond in t
 }}
 """
 
-        model_name = getattr(settings, "GEMINI_MODEL", "gemini-3.8-flash")
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-        except Exception as e:
-            if "NOT_FOUND" in str(e) or "404" in str(e):
-                # Try fallback model
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=prompt,
-                )
-            else:
-                raise e
-
-        text = response.text or ""
+        text = AIGateway.generate_content(
+            prompt=prompt,
+            max_output_tokens=1000,
+            temperature=0.2,
+            max_retries=3,
+        )
 
         # Extract JSON block if present
         parsed_json = {}

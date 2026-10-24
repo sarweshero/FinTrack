@@ -9,6 +9,7 @@ from .models import (
     DebtSettlement,
     AIReportCache,
 )
+from .services.category_mapper_service import CategoryMapperService
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -74,6 +75,28 @@ class TransactionSerializer(serializers.ModelSerializer):
         if value <= Decimal("0.00"):
             raise serializers.ValidationError("Amount must be greater than zero.")
         return value
+
+    def create(self, validated_data):
+        # Auto-map category if omitted and title/description is available
+        if not validated_data.get("category"):
+            title = validated_data.get("title", "")
+            description = validated_data.get("description", "")
+            tx_type = validated_data.get("type", Transaction.TransactionType.DEBIT)
+
+            try:
+                suggestion = CategoryMapperService.suggest_category(
+                    title=title,
+                    description=description,
+                    tx_type=tx_type,
+                )
+                if suggestion and suggestion.get("category_id"):
+                    cat = Category.objects.filter(id=suggestion["category_id"]).first()
+                    if cat:
+                        validated_data["category"] = cat
+            except Exception:
+                pass
+
+        return super().create(validated_data)
 
 
 class DebitTransactionSerializer(TransactionSerializer):

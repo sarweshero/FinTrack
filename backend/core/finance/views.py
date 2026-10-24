@@ -40,6 +40,7 @@ from .services.bill_scanner_service import (
     BillScannerService,
     process_bill_task_in_background,
 )
+from .services.category_mapper_service import CategoryMapperService
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -61,6 +62,23 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if search:
             qs = qs.filter(name__icontains=search)
         return qs
+
+    @action(detail=False, methods=["post"], url_path="suggest")
+    def suggest(self, request):
+        """
+        Suggests the most appropriate category given transaction title, note, and type.
+        Uses fast heuristic caching & Gemini with auto-retry and quota protection.
+        """
+        title = request.data.get("title", "")
+        description = request.data.get("description", "")
+        tx_type = str(request.data.get("type", "DEBIT")).upper()
+
+        suggestion = CategoryMapperService.suggest_category(
+            title=title,
+            description=description,
+            tx_type=tx_type,
+        )
+        return Response(suggestion, status=status.HTTP_200_OK)
 
 
 class DebitViewSet(viewsets.ModelViewSet):
@@ -400,7 +418,7 @@ class PeerDebtViewSet(viewsets.ModelViewSet):
     serializer_class = PeerDebtSerializer
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("category").prefetch_related("scan_tasks")
+        qs = super().get_queryset().prefetch_related("settlements")
         debt_type = self.request.query_params.get("type")
         if debt_type:
             qs = qs.filter(debt_type=debt_type.upper())

@@ -25,6 +25,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from ..models import Category, Transaction, BillScanTask
+from .ai_gateway import AIGateway
 
 logger = logging.getLogger(__name__)
 
@@ -91,29 +92,25 @@ class BillScannerService:
         # Step 3: Low-token prompt
         prompt = cls._build_prompt(category_context)
 
-        # Step 4: Call Gemini Vision with model fallbacks
-        result_text = None
-        last_error = None
+        # Step 4: Call Gemini Vision through unified AIGateway (rate limiting + 429 auto-retry)
+        try:
+            parsed = AIGateway.generate_json(
+                prompt=prompt,
+                image_bytes=compressed_bytes,
+                mime_type=mime_type,
+                max_output_tokens=650,
+                temperature=0.1,
+                model_candidates=cls.MODELS,
+                max_retries=3,
+            )
+        except Exception as exc:
+            logger.error("AIGateway failed to process bill image: %s", exc)
+            return cls._error_response(f"Gemini API error: {exc}")
 
-        for model_name in cls.MODELS:
-            try:
-                result_text = cls._call_gemini_rest(model_name, api_key, compressed_bytes, mime_type, prompt)
-                if result_text:
-                    logger.info("Successfully scanned bill using model: %s", model_name)
-                    break
-            except Exception as exc:
-                last_error = exc
-                logger.warning("Gemini model %s failed: %s; trying next model...", model_name, exc)
-
-        if not result_text:
-            return cls._error_response(f"Gemini API error: {last_error or 'All vision models failed'}")
-
-        # Step 5: Parse JSON
-        parsed = cls._parse_json(result_text)
-        if parsed is None:
+        if not parsed:
             return cls._error_response("Could not parse structured data from the image.")
 
-        # Step 6: Validate & enrich
+        # Step 5: Validate & enrich
         return cls._enrich(parsed, category_context)
 
     @classmethod

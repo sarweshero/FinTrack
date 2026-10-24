@@ -77,10 +77,12 @@ class TransactionAPITests(APITestCase):
 
         response = self.client.get("/api/transactions/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        results = response.data.get("results", response.data)
+        self.assertEqual(len(results), 2)
 
         # Filter by type
         filter_res = self.client.get("/api/transactions/?type=CREDIT")
-        self.assertEqual(len(filter_res.data), 1)
-        self.assertEqual(filter_res.data[0]["title"], "Bonus")
+        filter_results = filter_res.data.get("results", filter_res.data)
+        self.assertEqual(len(filter_results), 1)
+        self.assertEqual(filter_results[0]["title"], "Bonus")
 

@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -72,7 +73,14 @@ DB_NAME = os.getenv("DB_NAME") or os.getenv("database", "postgres")
 DB_USER = os.getenv("DB_USER") or os.getenv("user")
 DB_PASSWORD = os.getenv("DB_PASSWORD") or os.getenv("DBPASSWORD")
 
-if DB_HOST:
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+elif DB_HOST:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",

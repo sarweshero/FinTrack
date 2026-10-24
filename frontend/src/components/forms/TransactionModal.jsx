@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, ReceiptText } from 'lucide-react';
+import { Plus, X, ReceiptText, Sparkles, Loader2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { closeModal, addToast } from '../../store/slices/uiSlice';
 import { createTransaction, updateTransaction, fetchTransactions } from '../../store/slices/transactionSlice';
 import { fetchCategories, createCategory } from '../../store/slices/categorySlice';
 import { fetchDashboardData } from '../../store/slices/dashboardSlice';
+import { categoryAPI } from '../../api/categoryAPI';
 
 const PRESET_COLORS = [
   '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
@@ -27,6 +28,11 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
   const [description, setDescription] = useState(initialData?.description || '');
   const [submitting, setSubmitting] = useState(false);
 
+  // AI Auto-mapping State
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [userOverrodeCategory, setUserOverrodeCategory] = useState(false);
+
   // Inline Category Quick Add State
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
@@ -37,6 +43,72 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
+
+  // Debounced AI Category Auto-mapping
+  useEffect(() => {
+    if (initialData?.id) return;
+    const trimmedTitle = title.trim();
+    if (trimmedTitle.length < 3) {
+      setAiSuggestion(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      if (userOverrodeCategory && category) return;
+
+      setAiSuggesting(true);
+      try {
+        const res = await categoryAPI.suggest({
+          title: trimmedTitle,
+          description: description.trim(),
+          type,
+        });
+        if (res.data?.category_id) {
+          setAiSuggestion(res.data);
+          if (!category) {
+            setCategory(String(res.data.category_id));
+          }
+        }
+      } catch (err) {
+        console.debug('AI auto-mapping error:', err);
+      } finally {
+        setAiSuggesting(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [title, description, type, category, userOverrodeCategory, initialData?.id]);
+
+  const handleManualAutoMap = async () => {
+    const query = title.trim() || description.trim();
+    if (!query) {
+      dispatch(addToast({ message: 'Enter a title or note first to auto-map category', type: 'info' }));
+      return;
+    }
+    setAiSuggesting(true);
+    try {
+      const res = await categoryAPI.suggest({
+        title: title.trim(),
+        description: description.trim(),
+        type,
+      });
+      if (res.data?.category_id) {
+        setAiSuggestion(res.data);
+        setCategory(String(res.data.category_id));
+        setUserOverrodeCategory(false);
+        dispatch(addToast({
+          message: `✨ AI auto-mapped to "${res.data.category_name}"`,
+          type: 'success',
+        }));
+      } else {
+        dispatch(addToast({ message: 'AI could not find a confident category match', type: 'info' }));
+      }
+    } catch (err) {
+      dispatch(addToast({ message: 'Failed to auto-map category', type: 'error' }));
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
 
   const handleQuickAddCategory = async (e) => {
     if (e) e.preventDefault();
@@ -213,17 +285,29 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
               Category <span className="font-normal text-[11px] opacity-75">(Optional)</span>
             </label>
-            <button
-              type="button"
-              onClick={() => {
-                setShowAddCategory(!showAddCategory);
-                setCatError('');
-              }}
-              className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
-            >
-              <Plus size={12} />
-              <span>{showAddCategory ? 'Cancel' : 'New'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualAutoMap}
+                disabled={aiSuggesting || (!title.trim() && !description.trim())}
+                title="Auto-map category with AI"
+                className="text-[11px] font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex items-center gap-1 transition-colors disabled:opacity-40"
+              >
+                {aiSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                <span>Auto-map</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddCategory(!showAddCategory);
+                  setCatError('');
+                }}
+                className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
+              >
+                <Plus size={12} />
+                <span>{showAddCategory ? 'Cancel' : 'New'}</span>
+              </button>
+            </div>
           </div>
           <select
             value={category}
@@ -232,6 +316,7 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
                 setShowAddCategory(true);
               } else {
                 setCategory(e.target.value);
+                setUserOverrodeCategory(true);
               }
             }}
             className="w-full bg-slate-50 dark:bg-[#161c2d] border border-slate-200 dark:border-white/10 rounded-2xl py-2.5 px-3 text-slate-900 dark:text-white text-sm focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-[#161c2d] transition-colors"
@@ -257,6 +342,24 @@ const TransactionForm = ({ initialData, defaultType, onClose }) => {
             )}
             <option value="__NEW__">+ Create New Category...</option>
           </select>
+
+          {/* AI Auto-mapped indicator */}
+          {aiSuggestion && String(category) === String(aiSuggestion.category_id) && (
+            <div className="mt-1.5 flex items-center justify-between px-2.5 py-1 rounded-xl bg-violet-500/10 border border-violet-500/20 text-[11px] text-violet-700 dark:text-violet-300 animate-fadeIn">
+              <span className="flex items-center gap-1.5 font-medium truncate">
+                <Sparkles size={12} className="text-violet-500 shrink-0" />
+                <span>AI Mapped: <strong className="font-semibold">{aiSuggestion.category_name}</strong></span>
+                {aiSuggestion.reason && (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate hidden sm:inline">
+                    ({aiSuggestion.reason})
+                  </span>
+                )}
+              </span>
+              <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md bg-violet-500/20 text-violet-700 dark:text-violet-300 shrink-0 ml-1">
+                {aiSuggestion.confidence}
+              </span>
+            </div>
+          )}
         </div>
 
         <div>
