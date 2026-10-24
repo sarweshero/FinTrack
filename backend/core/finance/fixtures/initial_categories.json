@@ -118,6 +118,53 @@
       "is_default": true,
       "created_at": "2026-01-01T00:00:00Z"
     }
+  },
+  {
+    "model": "finance.category",
+    "pk": 11,
+    "fields": {
+      "name": "Fuel & Travel",
+      "type": "EXPENSE",
+      "icon": "car",
+      "color": "#F97316",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 12,
+    "fields": {
+      "name": "Healthcare & Medical",
+      "type": "EXPENSE",
+      "icon": "heart-pulse",
+      "color": "#14B8A6",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 13,
+    "fields": {
+      "name": "Education & Learning",
+      "type": "EXPENSE",
+      "icon": "graduation-cap",
+      "color": "#0284C7",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "finance.category",
+    "pk": 14,
+    "fields": {
+      "name": "Gifts & Grants",
+      "type": "INCOME",
+      "icon": "gift",
+      "color": "#E11D48",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
   }
 ]
-

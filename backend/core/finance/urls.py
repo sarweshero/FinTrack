@@ -15,6 +15,7 @@ from .views import (
     DashboardWhoOwesView,
     AIReportView,
     BillScanView,
+    BillScanStatusView,
 )
 
 router = DefaultRouter()
@@ -35,8 +36,9 @@ urlpatterns = [
     path("dashboard/who-owes/", DashboardWhoOwesView.as_view(), name="dashboard-who-owes"),
     # AI Financial Report route
     path("ai-report/", AIReportView.as_view(), name="ai-report"),
-    # Bill / Receipt Scanner (Gemini Vision) — quota-safe
+    # Bill / Receipt Scanner (Gemini Vision) — async quota-safe
     path("scan-bill/", BillScanView.as_view(), name="scan-bill"),
+    path("scan-bill/<uuid:task_id>/", BillScanStatusView.as_view(), name="scan-bill-status"),
     # Router endpoints
     path("", include(router.urls)),
 ]

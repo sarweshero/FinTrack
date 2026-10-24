@@ -1,5 +1,7 @@
+import threading
 from decimal import Decimal
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -13,6 +15,7 @@ from .models import (
     SavingsDeposit,
     PeerDebt,
     DebtSettlement,
+    BillScanTask,
 )
 from .serializers import (
     CategorySerializer,
@@ -30,7 +33,10 @@ from .serializers import (
 from .services.analytics_service import AnalyticsService
 from .services.reminder_service import ReminderService
 from .services.gemini_service import GeminiService
-from .services.bill_scanner_service import BillScannerService
+from .services.bill_scanner_service import (
+    BillScannerService,
+    process_bill_task_in_background,
+)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -317,21 +323,13 @@ class AIReportView(APIView):
 class BillScanView(APIView):
     """
     POST /api/scan-bill/
-    Accepts a multipart/form-data image, compresses it aggressively in-memory
-    (≤ 800 px, JPEG-50) before forwarding to Gemini Vision, and returns
-    a structured transaction payload for the user to review and confirm.
-
-    Quota safeguards
-    ----------------
-    • Hard rate-limit: 10 scans / hour (via DRF ScopedRateThrottle).
-    • Image is never stored on disk — all processing happens in RAM.
-    • Gemini output tokens capped at 512; prompt is < 150 tokens.
+    Accepts a multipart/form-data image, creates an async BillScanTask,
+    spawns a background thread to process Gemini Vision & auto-update the balance,
+    and returns HTTP 202 immediately to avoid client/gateway timeouts.
     """
 
     throttle_scope = "scan_bill"
 
-    # Allow up to 10 MB uploads so real phone photos are accepted (they'll
-    # be compressed down to ~50–80 KB before hitting the API).
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
     ALLOWED_CONTENT_TYPES = {
         "image/jpeg", "image/jpg", "image/png",
@@ -361,16 +359,52 @@ class BillScanView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Read all bytes into memory (no disk I/O)
         raw_bytes = image_file.read()
 
-        # Delegate to service (compresses + calls Gemini)
-        result = BillScannerService.scan(raw_bytes)
+        # Create async task
+        task = BillScanTask.objects.create(status=BillScanTask.Status.PROCESSING)
 
-        if not result.get("success"):
-            return Response(
-                {"error": result.get("error", "Scan failed.")},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+        # Spawn background processing thread
+        thread = threading.Thread(
+            target=process_bill_task_in_background,
+            args=(str(task.id), raw_bytes),
+            daemon=True,
+        )
+        thread.start()
 
-        return Response(result, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "task_id": str(task.id),
+                "status": task.status,
+                "message": "Bill uploaded! Processing in background.",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class BillScanStatusView(APIView):
+    """
+    GET /api/scan-bill/<uuid:task_id>/
+    Polls the status of an asynchronous bill scan task and returns
+    extracted data and auto-created transaction when completed.
+    """
+
+    def get(self, request, task_id):
+        task = get_object_or_404(BillScanTask, id=task_id)
+
+        tx_data = None
+        if task.transaction:
+            tx_data = TransactionSerializer(task.transaction).data
+
+        return Response(
+            {
+                "task_id": str(task.id),
+                "status": task.status,
+                "error_message": task.error_message,
+                "extracted_data": task.extracted_data,
+                "transaction": tx_data,
+                "created_at": task.created_at,
+                "updated_at": task.updated_at,
+            },
+            status=status.HTTP_200_OK,
+        )

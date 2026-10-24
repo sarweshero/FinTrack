@@ -16,15 +16,20 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Zap,
+  Edit3,
+  ListOrdered,
+  FileText,
 } from 'lucide-react';
 
 import PageTransition from '../components/layout/PageTransition';
 import GlassCard from '../components/ui/GlassCard';
+import SkeletonReceipt from '../components/ui/SkeletonReceipt';
 import { billAPI } from '../api/billAPI';
 import { transactionAPI } from '../api/transactionAPI';
 import { addToast } from '../store/slices/uiSlice';
 import { fetchCategories } from '../store/slices/categorySlice';
 import { fetchDashboardData } from '../store/slices/dashboardSlice';
+import { fetchTransactions } from '../store/slices/transactionSlice';
 
 // ── Accepted image MIME types ─────────────────────────────────────────────────
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
@@ -40,33 +45,6 @@ const PAYMENT_METHODS = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-// ── Laser scan animation ──────────────────────────────────────────────────────
-function LaserBeam() {
-  return (
-    <motion.div
-      className="absolute inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-indigo-400 to-transparent shadow-[0_0_12px_rgba(99,102,241,0.9)] z-20 pointer-events-none"
-      initial={{ top: '5%', opacity: 0 }}
-      animate={{ top: ['5%', '95%', '5%'], opacity: [0, 1, 1, 0] }}
-      transition={{ duration: 2.4, ease: 'easeInOut', repeat: Infinity, repeatDelay: 0.3 }}
-    />
-  );
-}
-
-// ── Confidence badge ──────────────────────────────────────────────────────────
-function ConfidenceBadge({ confidence }) {
-  const map = {
-    high: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-    medium: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
-    low: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30',
-  };
-  return (
-    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${map[confidence] ?? map.low}`}>
-      {confidence} confidence
-    </span>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function ScanBillPage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -76,14 +54,18 @@ export default function ScanBillPage() {
   const cameraInputRef = useRef(null);
   const dropRef = useRef(null);
 
-  // ── State machine: idle | scanning | review | saved | error ──────────────
+  // ── State machine: idle | scanning | completed | review | error ──────────────
   const [phase, setPhase] = useState('idle');
-  const [preview, setPreview] = useState(null);   // base64 for <img>
+  const [statusMessage, setStatusMessage] = useState('Uploading image…');
+  const [preview, setPreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [lineItemsOpen, setLineItemsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Created transaction from background auto-update
+  const [createdTx, setCreatedTx] = useState(null);
 
   // ── Review form fields ────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -124,26 +106,58 @@ export default function ScanBillPage() {
       setImageFile(file);
       loadPreview(file);
       setPhase('scanning');
+      setStatusMessage('Uploading and compressing image…');
       setErrorMsg('');
+      setCreatedTx(null);
 
       try {
-        // Ensure categories are loaded for the review dropdown
-        if (categories.length === 0) await dispatch(fetchCategories());
+        if (categories.length === 0) {
+          dispatch(fetchCategories());
+        }
 
-        const result = await billAPI.scan(file);
+        // Step 1: Upload (returns HTTP 202 immediately in <300ms)
+        const uploadRes = await billAPI.scan(file);
+        const taskId = uploadRes.task_id;
 
-        // Populate review form with Gemini results
-        setForm({
-          type: result.type ?? 'DEBIT',
-          title: result.title ?? '',
-          amount: result.amount != null ? String(result.amount) : '',
-          date: result.date ?? new Date().toISOString().slice(0, 10),
-          category: result.category_id != null ? String(result.category_id) : '',
-          payment_method: result.payment_method ?? 'OTHER',
-          description: '',
+        setStatusMessage('AI analyzing bill & extracting line items…');
+
+        // Step 2: Poll background task
+        const finalTask = await billAPI.pollUntilDone(taskId, {
+          intervalMs: 1500,
+          maxAttempts: 30,
+          onProgress: (taskData, attempt) => {
+            if (attempt > 2) {
+              setStatusMessage('Extracting merchant, totals & updating balance…');
+            }
+          },
         });
-        setLineItems(result.line_items ?? []);
-        setPhase('review');
+
+        const extracted = finalTask.extracted_data || {};
+        const tx = finalTask.transaction;
+
+        // Sync Redux store so UI balance immediately reflects the new transaction
+        dispatch(fetchDashboardData());
+        dispatch(fetchTransactions());
+
+        setForm({
+          type: tx?.type || extracted.type || 'DEBIT',
+          title: tx?.title || extracted.title || 'Scanned Bill',
+          amount: tx?.amount != null ? String(tx.amount) : extracted.amount != null ? String(extracted.amount) : '',
+          date: tx?.date || extracted.date || new Date().toISOString().slice(0, 10),
+          category: tx?.category != null ? String(tx.category) : extracted.category_id != null ? String(extracted.category_id) : '',
+          payment_method: tx?.payment_method || extracted.payment_method || 'OTHER',
+          description: tx?.description || '',
+        });
+        setLineItems(extracted.line_items || []);
+
+        if (tx) {
+          setCreatedTx(tx);
+          setPhase('completed');
+          dispatch(addToast({ message: `₹${tx.amount} auto-saved to ledger! Balance updated.`, type: 'success' }));
+        } else {
+          // If no amount was detected, go to review so user can confirm
+          setPhase('review');
+        }
       } catch (e) {
         setErrorMsg(e.message || 'Scan failed. Please try again.');
         setPhase('error');
@@ -163,29 +177,54 @@ export default function ScanBillPage() {
     [handleFile],
   );
 
-  const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const onDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
   const onDragLeave = () => setIsDragging(false);
 
-  // ── Save confirmed transaction ────────────────────────────────────────────
+  // ── Save or update transaction ────────────────────────────────────────────
   const handleSave = async () => {
-    if (!form.title.trim()) { dispatch(addToast({ message: 'Title is required.', type: 'error' })); return; }
-    if (!form.amount || parseFloat(form.amount) <= 0) { dispatch(addToast({ message: 'Enter a valid amount.', type: 'error' })); return; }
+    if (!form.title.trim()) {
+      dispatch(addToast({ message: 'Title is required.', type: 'error' }));
+      return;
+    }
+    if (!form.amount || parseFloat(form.amount) <= 0) {
+      dispatch(addToast({ message: 'Enter a valid amount in ₹.', type: 'error' }));
+      return;
+    }
 
     setSaving(true);
     try {
-      await transactionAPI.create({
-        type: form.type,
-        title: form.title.trim(),
-        amount: parseFloat(form.amount),
-        date: form.date,
-        category: form.category ? parseInt(form.category) : null,
-        payment_method: form.payment_method,
-        description: form.description.trim(),
-      });
+      if (createdTx?.id) {
+        // Update the auto-created transaction
+        await transactionAPI.update(createdTx.id, {
+          type: form.type,
+          title: form.title.trim(),
+          amount: parseFloat(form.amount),
+          date: form.date,
+          category: form.category ? parseInt(form.category) : null,
+          payment_method: form.payment_method,
+          description: form.description.trim(),
+        });
+        dispatch(addToast({ message: 'Transaction updated successfully!', type: 'success' }));
+      } else {
+        // Create new transaction
+        await transactionAPI.create({
+          type: form.type,
+          title: form.title.trim(),
+          amount: parseFloat(form.amount),
+          date: form.date,
+          category: form.category ? parseInt(form.category) : null,
+          payment_method: form.payment_method,
+          description: form.description.trim(),
+        });
+        dispatch(addToast({ message: 'Transaction saved to ledger!', type: 'success' }));
+      }
 
-      setPhase('saved');
-      dispatch(addToast({ message: 'Transaction saved from bill scan!', type: 'success' }));
       dispatch(fetchDashboardData());
+      dispatch(fetchTransactions());
+      setPhase('completed');
     } catch (e) {
       dispatch(addToast({ message: e.message || 'Failed to save transaction.', type: 'error' }));
     } finally {
@@ -197,6 +236,7 @@ export default function ScanBillPage() {
     setPhase('idle');
     setPreview(null);
     setImageFile(null);
+    setCreatedTx(null);
     setLineItems([]);
     setErrorMsg('');
     setLineItemsOpen(false);
@@ -220,25 +260,25 @@ export default function ScanBillPage() {
   return (
     <PageTransition>
       <div className="max-w-lg mx-auto space-y-4 py-2">
-
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
             <ScanLine size={20} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Scan Bill</h1>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Upload a receipt — AI extracts the details</p>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Smart Bill Scanner</h1>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Upload receipt • AI parses &amp; auto-updates your balance
+            </p>
           </div>
-          {/* Quota note */}
-          <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
-            <Zap size={10} />
-            10 scans/hr
+          <div className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+            <Zap size={11} />
+            Background Sync
           </div>
         </div>
 
-        {/* ── IDLE — Upload Zone ── */}
         <AnimatePresence mode="wait">
+          {/* ── IDLE — Upload Zone ── */}
           {phase === 'idle' && (
             <motion.div
               key="idle"
@@ -247,16 +287,16 @@ export default function ScanBillPage() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-3"
             >
-              {/* Drop Zone */}
               <div
                 ref={dropRef}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
                 className={`relative rounded-3xl border-2 border-dashed transition-all p-8 text-center cursor-pointer
-                  ${isDragging
-                    ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_rgba(99,102,241,0.25)]'
-                    : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/3 hover:border-indigo-400 hover:bg-indigo-500/5'
+                  ${
+                    isDragging
+                      ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_30px_rgba(99,102,241,0.25)]'
+                      : 'border-slate-200 dark:border-white/10 bg-white/40 dark:bg-white/3 hover:border-indigo-400 hover:bg-indigo-500/5'
                   }`}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -266,23 +306,23 @@ export default function ScanBillPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
-                      Drop your bill image here
+                      Drop your bill or receipt here
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       JPG, PNG, WebP, HEIC — max 10 MB
                     </p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                      Compressed client-side before upload to save Gemini quota
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      Processes in the background • Auto-updates balance &amp; ledger
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Camera / File buttons */}
+              {/* Action buttons */}
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => cameraInputRef.current?.click()}
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-semibold transition-all shadow-md"
+                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-semibold transition-all shadow-md shadow-indigo-500/20"
                 >
                   <Camera size={16} /> Take Photo
                 </button>
@@ -294,9 +334,8 @@ export default function ScanBillPage() {
                 </button>
               </div>
 
-              {/* Tips */}
               <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center space-y-0.5 pb-2">
-                <p>✅ Works with: grocery receipts, restaurant bills, utility invoices, salary slips</p>
+                <p>✅ Works with grocery receipts, fuel bills, restaurant tabs, invoices</p>
               </div>
 
               {/* Hidden inputs */}
@@ -305,7 +344,11 @@ export default function ScanBillPage() {
                 type="file"
                 accept={ACCEPT}
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                  e.target.value = '';
+                }}
               />
               <input
                 ref={cameraInputRef}
@@ -313,53 +356,46 @@ export default function ScanBillPage() {
                 accept={ACCEPT}
                 capture="environment"
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                  e.target.value = '';
+                }}
               />
             </motion.div>
           )}
 
-          {/* ── SCANNING ── */}
+          {/* ── SCANNING / SKELETON SCREEN & CONTENT LOADERS ── */}
           {phase === 'scanning' && (
             <motion.div
               key="scanning"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="space-y-4"
             >
-              <GlassCard className="overflow-hidden p-0">
-                {/* Image preview with laser */}
-                <div className="relative overflow-hidden rounded-t-2xl bg-slate-900/10 dark:bg-black/30 max-h-60">
-                  {preview && (
-                    <img
-                      src={preview}
-                      alt="Bill preview"
-                      className="w-full h-60 object-cover opacity-70"
-                    />
-                  )}
-                  {/* Dark scan overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/20" />
-                  <LaserBeam />
-                  {/* Corner brackets */}
-                  {[['top-2 left-2', 'border-t-2 border-l-2'], ['top-2 right-2', 'border-t-2 border-r-2'],
-                    ['bottom-2 left-2', 'border-b-2 border-l-2'], ['bottom-2 right-2', 'border-b-2 border-r-2']
-                  ].map(([pos, borders], i) => (
-                    <div key={i} className={`absolute ${pos} w-5 h-5 border-indigo-400 ${borders} rounded-sm`} />
-                  ))}
+              {/* Optional Mini Preview Thumbnail */}
+              {preview && (
+                <div className="flex items-center gap-3 p-2.5 rounded-2xl glass-panel border border-slate-200/60 dark:border-white/5">
+                  <img
+                    src={preview}
+                    alt="Uploaded bill"
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 dark:border-white/10 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      {imageFile?.name || 'Receipt Image'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                      Uploaded • Processing in background
+                    </p>
+                  </div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping mr-2" />
                 </div>
+              )}
 
-                <div className="p-4 text-center space-y-1">
-                  <motion.p
-                    className="text-sm font-semibold text-slate-800 dark:text-slate-100"
-                    animate={{ opacity: [1, 0.5, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    Analyzing with Gemini Vision…
-                  </motion.p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Compressed image sent — extracting amount, date, merchant &amp; category
-                  </p>
-                </div>
-              </GlassCard>
+              {/* Full Shimmer Skeleton Receipt Loader */}
+              <SkeletonReceipt statusText={statusMessage} />
             </motion.div>
           )}
 
@@ -371,13 +407,13 @@ export default function ScanBillPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
-              <GlassCard className="border border-rose-500/25 p-5 text-center space-y-3">
-                <AlertCircle size={32} className="mx-auto text-rose-500" />
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Scan Failed</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{errorMsg}</p>
+              <GlassCard className="border border-rose-500/25 p-6 text-center space-y-3">
+                <AlertCircle size={36} className="mx-auto text-rose-500" />
+                <p className="text-sm font-bold text-slate-900 dark:text-white">Scan Failed</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{errorMsg}</p>
                 <button
                   onClick={reset}
-                  className="flex items-center gap-2 mx-auto px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-semibold transition-all border border-rose-500/20"
+                  className="flex items-center gap-2 mx-auto px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-semibold transition-all border border-rose-500/20"
                 >
                   <RefreshCcw size={14} /> Try Again
                 </button>
@@ -385,7 +421,125 @@ export default function ScanBillPage() {
             </motion.div>
           )}
 
-          {/* ── REVIEW ── */}
+          {/* ── COMPLETED & AUTO-SAVED ── */}
+          {phase === 'completed' && (
+            <motion.div
+              key="completed"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-4"
+            >
+              <GlassCard className="border border-emerald-500/25 p-6 text-center space-y-4 overflow-hidden relative">
+                {/* Ambient Glow */}
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Animated checkmark */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+                  className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto text-emerald-500 border border-emerald-500/20 shadow-sm"
+                >
+                  <CheckCircle2 size={32} />
+                </motion.div>
+
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    Auto-Saved to Ledger!
+                  </h2>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                    Your account balance has been updated automatically
+                  </p>
+                </div>
+
+                {/* Parsed Details Summary Card */}
+                <div className="rounded-2xl p-4 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-left space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-white/5">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">
+                        Merchant / Title
+                      </span>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        {form.title || 'Scanned Bill'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">
+                        Amount
+                      </span>
+                      <p className={`text-lg font-black ${form.type === 'DEBIT' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {form.type === 'DEBIT' ? '-' : '+'}₹{Number(form.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Type</span>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">
+                        {form.type === 'DEBIT' ? 'Expense' : 'Income'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Date</span>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">{form.date}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Payment</span>
+                      <p className="font-semibold text-slate-700 dark:text-slate-300">{form.payment_method}</p>
+                    </div>
+                  </div>
+
+                  {/* Line items preview if present */}
+                  {lineItems.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-white/5">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 flex items-center gap-1">
+                        <ListOrdered size={12} /> Detected Line Items ({lineItems.length})
+                      </p>
+                      <div className="space-y-1">
+                        {lineItems.slice(0, 3).map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                            <span>{item.name}</span>
+                            <span>₹{Number(item.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                        {lineItems.length > 3 && (
+                          <p className="text-[10px] text-indigo-500 font-medium">
+                            +{lineItems.length - 3} more items detected
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary & secondary actions */}
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                  <button
+                    onClick={() => navigate('/transactions')}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-semibold transition-all shadow-md shadow-indigo-500/20"
+                  >
+                    <FileText size={16} /> View in Ledger
+                  </button>
+                  <button
+                    onClick={() => setPhase('review')}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl glass-panel glass-panel-hover border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-all"
+                  >
+                    <Edit3 size={15} /> Edit Details
+                  </button>
+                  <button
+                    onClick={reset}
+                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl glass-panel glass-panel-hover border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 text-sm font-semibold transition-all"
+                  >
+                    <Camera size={15} /> Scan Another
+                  </button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+
+          {/* ── REVIEW / EDIT FORM ── */}
           {phase === 'review' && (
             <motion.div
               key="review"
@@ -394,27 +548,27 @@ export default function ScanBillPage() {
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              {/* Mini preview + reset */}
+              {/* Header bar */}
               <div className="flex items-center gap-3">
                 {preview && (
                   <img
                     src={preview}
                     alt="Scanned bill"
-                    className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-white/10"
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-white/10"
                   />
                 )}
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 size={13} /> Scan complete — review &amp; edit below
+                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                    <Edit3 size={13} /> {createdTx ? 'Edit Transaction Details' : 'Review & Confirm Bill'}
                   </p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Correct any fields before saving
+                    Make any adjustments before saving
                   </p>
                 </div>
                 <button
                   onClick={reset}
                   className="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 transition-all"
-                  title="Scan another bill"
+                  title="Close"
                 >
                   <X size={15} />
                 </button>
@@ -453,7 +607,7 @@ export default function ScanBillPage() {
                     type="text"
                     value={form.title}
                     onChange={(e) => setField('title', e.target.value)}
-                    placeholder="e.g. Walmart, Starbucks, Electric Bill"
+                    placeholder="e.g. Reliance Fresh, Shell Fuel, Starbucks"
                     className={inputCls}
                   />
                 </div>
@@ -485,7 +639,9 @@ export default function ScanBillPage() {
 
                 {/* Category */}
                 <div>
-                  <label className={labelCls}>Category <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+                  <label className={labelCls}>
+                    Category <span className="normal-case font-normal text-slate-400">(optional)</span>
+                  </label>
                   <select
                     value={form.category}
                     onChange={(e) => setField('category', e.target.value)}
@@ -493,12 +649,15 @@ export default function ScanBillPage() {
                   >
                     <option value="">— No category —</option>
                     {categories
-                      .filter((c) =>
-                        c.type === 'BOTH' ||
-                        (form.type === 'DEBIT' ? c.type === 'EXPENSE' : c.type === 'INCOME')
+                      .filter(
+                        (c) =>
+                          c.type === 'BOTH' ||
+                          (form.type === 'DEBIT' ? c.type === 'EXPENSE' : c.type === 'INCOME')
                       )
                       .map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
                       ))}
                   </select>
                 </div>
@@ -512,18 +671,22 @@ export default function ScanBillPage() {
                     className={inputCls}
                   >
                     {PAYMENT_METHODS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* Notes */}
                 <div>
-                  <label className={labelCls}>Notes <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+                  <label className={labelCls}>
+                    Notes <span className="normal-case font-normal text-slate-400">(optional)</span>
+                  </label>
                   <textarea
                     value={form.description}
                     onChange={(e) => setField('description', e.target.value)}
-                    placeholder="Add any extra details…"
+                    placeholder="Add details, bill numbers, etc…"
                     rows={2}
                     className={`${inputCls} resize-none`}
                   />
@@ -567,7 +730,7 @@ export default function ScanBillPage() {
                 )}
               </GlassCard>
 
-              {/* Save / Cancel */}
+              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={reset}
@@ -588,51 +751,12 @@ export default function ScanBillPage() {
                       Saving…
                     </motion.span>
                   ) : (
-                    <><Save size={15} /> Save to Ledger</>
+                    <>
+                      <Save size={15} /> {createdTx ? 'Update Transaction' : 'Save to Ledger'}
+                    </>
                   )}
                 </button>
               </div>
-            </motion.div>
-          )}
-
-          {/* ── SAVED ── */}
-          {phase === 'saved' && (
-            <motion.div
-              key="saved"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <GlassCard className="border border-emerald-500/25 p-8 text-center space-y-4">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-                  className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto"
-                >
-                  <CheckCircle2 size={34} className="text-emerald-500" />
-                </motion.div>
-                <div>
-                  <p className="text-base font-bold text-slate-900 dark:text-white">Saved to Ledger!</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Your transaction has been recorded from the bill scan.
-                  </p>
-                </div>
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={reset}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl glass-panel border border-slate-200 dark:border-white/10 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                  >
-                    <Camera size={14} /> Scan Another
-                  </button>
-                  <button
-                    onClick={() => navigate('/transactions')}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all"
-                  >
-                    View Ledger
-                  </button>
-                </div>
-              </GlassCard>
             </motion.div>
           )}
         </AnimatePresence>
@@ -640,4 +764,3 @@ export default function ScanBillPage() {
     </PageTransition>
   );
 }
-

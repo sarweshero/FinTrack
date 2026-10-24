@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
@@ -211,3 +212,36 @@ class AIReportCache(models.Model):
 
     def __str__(self):
         return f"AI Report {self.period_start} to {self.period_end} ({self.generated_at})"
+
+
+class BillScanTask(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PROCESSING = "PROCESSING", "Processing"
+        COMPLETED = "COMPLETED", "Completed"
+        FAILED = "FAILED", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PROCESSING,
+        db_index=True,
+    )
+    extracted_data = models.JSONField(default=dict, blank=True)
+    transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="scan_tasks",
+    )
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"BillScanTask {self.id} [{self.status}]"

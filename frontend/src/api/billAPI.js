@@ -1,14 +1,14 @@
 import client from './client';
 
 /**
- * billAPI — wraps the POST /scan-bill/ endpoint.
+ * billAPI — Quota-safe, Async Background Bill Scanner API.
  *
- * The image is compressed *further* on the client side (canvas 800px, JPEG 0.65)
- * before being sent, so even large phone photos become ~100–200 KB on the wire.
- * The backend then compresses again with Pillow to ≤ 800px / JPEG-50.
- *
- * This double-compression approach keeps Gemini Vision token usage minimal and
- * stays well within the free tier quota.
+ * 1. Image is compressed on client side via HTML5 Canvas (max 800px, JPEG 0.65)
+ *    reducing file size by ~90% before uploading.
+ * 2. Upload endpoint POST /api/scan-bill/ returns HTTP 202 in <300ms with a task_id.
+ * 3. Gemini Vision runs in the background on the server and auto-creates the Transaction
+ *    in the DB to immediately update balance and ledger.
+ * 4. getStatus(taskId) polls the task status and retrieves the parsed result.
  */
 
 /**
@@ -56,21 +56,55 @@ export async function compressImageClient(file) {
 
 export const billAPI = {
   /**
-   * Compress the image client-side, then POST to /api/scan-bill/.
+   * Compress image client-side, then upload to start background parsing task.
    * @param {File} imageFile
-   * @returns {Promise<object>} Parsed bill data from Gemini
+   * @returns {Promise<{task_id: string, status: string, message: string}>}
    */
   scan: async (imageFile) => {
     const compressed = await compressImageClient(imageFile);
 
     const formData = new FormData();
-    // Use the original filename but override content-type via Blob
     formData.append('image', compressed, imageFile.name.replace(/\.[^.]+$/, '.jpg'));
 
     return client.post('/scan-bill/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 30000, // Vision calls can take up to ~20s on free tier
+      timeout: 15000,
     });
+  },
+
+  /**
+   * Get the processing status and results of a bill scan task.
+   * @param {string} taskId
+   * @returns {Promise<{task_id: string, status: string, extracted_data: object, transaction: object, error_message: string}>}
+   */
+  getStatus: async (taskId) => {
+    return client.get(`/scan-bill/${taskId}/`);
+  },
+
+  /**
+   * Poll task until completion or failure.
+   * @param {string} taskId
+   * @param {object} options
+   * @returns {Promise<object>} Final task object
+   */
+  pollUntilDone: async (taskId, { intervalMs = 1500, maxAttempts = 30, onProgress } = {}) => {
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      const data = await billAPI.getStatus(taskId);
+      if (onProgress) {
+        onProgress(data, attempts);
+      }
+      if (data.status === 'COMPLETED') {
+        return data;
+      }
+      if (data.status === 'FAILED') {
+        throw new Error(data.error_message || 'Bill processing failed on the server.');
+      }
+      attempts += 1;
+      await new Promise((res) => setTimeout(res, intervalMs));
+    }
+    throw new Error('Processing took too long. Please check your ledger or try again.');
   },
 };
 
+export default billAPI;
