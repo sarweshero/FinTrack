@@ -124,11 +124,13 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
-raw_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
-if raw_cors_origins:
+raw_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+if not raw_cors_origins or raw_cors_origins == "*" or "*" in [o.strip() for o in raw_cors_origins.split(",") if o.strip()]:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
-        origin.strip() for origin in raw_cors_origins.split(",") if origin.strip()
+        origin.strip() for origin in raw_cors_origins.split(",") if origin.strip() and origin.strip() != "*"
     ]
 
 # Django REST Framework
